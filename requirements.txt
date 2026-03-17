@@ -1,0 +1,18 @@
+# Dependências da aplicação Gate Automation
+# Instale com: pip install -r requirements.txt
+
+# Interface gráfica
+customtkinter>=5.2.2
+
+# Requisições HTTP (sincronização com servidor)
+requests>=2.31.0
+
+# Comunicação serial com o leitor RFID (Raspberry Pi)
+# Em modo mock (MOCK_HARDWARE=true) não é obrigatório
+pyserial>=3.5
+
+# Comunicação HID com leitor RFID USB (modo RFID_MODE=hid)
+hidapi>=0.14.0
+
+# GPIO do Raspberry Pi – instale apenas no hardware real
+# RPi.GPIO>=0.7.1
