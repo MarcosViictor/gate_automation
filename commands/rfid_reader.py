@@ -34,6 +34,8 @@ class RFIDReader:
         self._thread: threading.Thread | None = None
         self._last_tag: str | None = None
         self._last_tag_time = 0.0
+        self._hid_candidates: list[dict[str, Any]] = []
+        self._hid_candidate_idx = 0
 
     def start(self):
         self._stop_event.clear()
@@ -140,20 +142,43 @@ class RFIDReader:
             return
 
         device = None
+        device_info: dict[str, Any] | None = None
+        last_data_at = 0.0
+
         while not self._stop_event.is_set():
             if device is None:
-                device = self._connect_hid_device(hid)
+                device, device_info = self._connect_hid_device(hid)
                 if device is None:
                     self._stop_event.wait(1)
                     continue
+                last_data_at = time.monotonic()
 
             try:
                 packet_size = max(config.RFID_HID_PACKET_SIZE, 1)
                 data = device.read(packet_size)
 
                 if not data:
+                    # Alguns leitores expõem multiplas interfaces HID. Se a interface atual
+                    # ficar sem dados, avanca para a proxima candidata automaticamente.
+                    idle_seconds = max(config.RFID_HID_INTERFACE_IDLE_SECONDS, 0.0)
+                    if (
+                        idle_seconds > 0
+                        and len(self._hid_candidates) > 1
+                        and (time.monotonic() - last_data_at) >= idle_seconds
+                    ):
+                        logger.info(
+                            "Interface HID sem dados por %.1fs; tentando proxima interface",
+                            idle_seconds,
+                        )
+                        self._close_hid_device(device)
+                        device = None
+                        device_info = None
+                        continue
+
                     self._stop_event.wait(max(config.RFID_POLL_INTERVAL, 0.01))
                     continue
+
+                last_data_at = time.monotonic()
 
                 tag_code = self._parse_hid_data(data)
                 if tag_code:
@@ -164,6 +189,7 @@ class RFIDReader:
                 logger.warning("Dispositivo HID desconectado ou com erro de leitura: %s", exc)
                 self._close_hid_device(device)
                 device = None
+                device_info = None
                 self._stop_event.wait(1)
             except Exception as exc:
                 logger.warning("Erro na leitura HID: %s", exc)
@@ -176,11 +202,12 @@ class RFIDReader:
             import hid  # type: ignore
         except ImportError:
             return False
-        return self._find_hid_device_info(hid) is not None
+        return bool(self._list_hid_candidates(hid))
 
     def _connect_hid_device(self, hid_module: Any):
-        info = self._find_hid_device_info(hid_module)
-        if info is None:
+        self._hid_candidates = self._list_hid_candidates(hid_module)
+
+        if not self._hid_candidates:
             vid, pid = self._get_hid_filters()
             if vid is not None or pid is not None:
                 logger.warning(
@@ -190,7 +217,10 @@ class RFIDReader:
                 )
             else:
                 logger.warning("Nenhum leitor HID disponivel")
-            return None
+            return None, None
+
+        info = self._hid_candidates[self._hid_candidate_idx % len(self._hid_candidates)]
+        self._hid_candidate_idx = (self._hid_candidate_idx + 1) % len(self._hid_candidates)
 
         try:
             device = hid_module.device()
@@ -202,32 +232,76 @@ class RFIDReader:
             device.set_nonblocking(True)
 
             logger.info(
-                "Leitor HID conectado (VID=%s PID=%s)",
+                (
+                    "Leitor HID conectado (VID=%s PID=%s interface=%s usage_page=%s usage=%s)"
+                ),
                 self._fmt_hex(info.get("vendor_id")),
                 self._fmt_hex(info.get("product_id")),
+                info.get("interface_number", "*"),
+                self._fmt_hex(info.get("usage_page")),
+                self._fmt_hex(info.get("usage")),
             )
-            return device
+            return device, info
         except Exception as exc:
             logger.error("Falha ao conectar no leitor HID: %s", exc)
-            return None
+            return None, None
 
-    def _find_hid_device_info(self, hid_module: Any) -> dict[str, Any] | None:
+    def _list_hid_candidates(self, hid_module: Any) -> list[dict[str, Any]]:
         devices = hid_module.enumerate()
         if not devices:
-            return None
+            return []
 
         vid_filter, pid_filter = self._get_hid_filters()
+        interface_filter = self._parse_optional_int(config.RFID_HID_INTERFACE_NUMBER)
+        usage_page_filter = self._parse_optional_int(config.RFID_HID_USAGE_PAGE)
+        usage_filter = self._parse_optional_int(config.RFID_HID_USAGE)
+
+        candidates: list[dict[str, Any]] = []
 
         for dev in devices:
             vid = dev.get("vendor_id")
             pid = dev.get("product_id")
+            interface_number = dev.get("interface_number")
+            usage_page = dev.get("usage_page")
+            usage = dev.get("usage")
+
             if vid_filter is not None and vid != vid_filter:
                 continue
             if pid_filter is not None and pid != pid_filter:
                 continue
-            return dev
+            if interface_filter is not None and interface_number != interface_filter:
+                continue
+            if usage_page_filter is not None and usage_page != usage_page_filter:
+                continue
+            if usage_filter is not None and usage != usage_filter:
+                continue
 
-        return None
+            candidates.append(dev)
+
+        # Priorizacao para interfaces tipicas de leitores RFID
+        candidates.sort(
+            key=lambda d: (
+                0 if d.get("usage_page") == 0xFF00 else 1,
+                0 if d.get("usage") == 1 else 1,
+                d.get("interface_number") if d.get("interface_number") is not None else 999,
+            )
+        )
+
+        if config.RFID_HID_LOG_ENUMERATION and candidates:
+            for idx, dev in enumerate(candidates):
+                logger.info(
+                    (
+                        "HID candidato %d: VID=%s PID=%s interface=%s usage_page=%s usage=%s"
+                    ),
+                    idx,
+                    self._fmt_hex(dev.get("vendor_id")),
+                    self._fmt_hex(dev.get("product_id")),
+                    dev.get("interface_number", "*"),
+                    self._fmt_hex(dev.get("usage_page")),
+                    self._fmt_hex(dev.get("usage")),
+                )
+
+        return candidates
 
     def _get_hid_filters(self) -> tuple[int | None, int | None]:
         return (
@@ -242,7 +316,7 @@ class RFIDReader:
         try:
             return int(value, 0)  # aceita decimal e hexadecimal (ex.: 0x1234)
         except ValueError:
-            logger.warning("Valor invalido para VID/PID HID: %s", value)
+            logger.warning("Valor inteiro invalido em configuracao HID: %s", value)
             return None
 
     @staticmethod
@@ -260,27 +334,34 @@ class RFIDReader:
         if not hex_list:
             return None
 
-        # Ajuste de offset Linux/Windows (configuravel via env)
-        if len(hex_list) > 20:
-            offset = max(config.RFID_HID_OFFSET, 0)
-            id_real = hex_list[offset:]
-        else:
-            id_real = hex_list
-
-        if not id_real:
-            return None
-
-        # TAG sem espacos
-        id_string = "".join(id_real)
-
-        # Remove digitos finais (checksum/sufixo), se configurado
         strip_digits = max(config.RFID_HID_STRIP_HEX_DIGITS, 0)
-        if strip_digits > 0 and len(id_string) > strip_digits:
-            id_string = id_string[:-strip_digits]
 
-        logger.debug("Recebido bruto (hid): %s", hex_list)
-        logger.debug("Processado (hid): %s", id_string)
-        return id_string or None
+        # Tenta offset principal e fallback 17/18/19 automaticamente.
+        base_offset = max(config.RFID_HID_OFFSET, 0)
+        offset_candidates = [base_offset]
+        for fallback in (17, 18, 19):
+            if fallback not in offset_candidates:
+                offset_candidates.append(fallback)
+
+        for offset in offset_candidates:
+            if len(hex_list) > 20:
+                id_real = hex_list[offset:]
+            else:
+                id_real = hex_list
+
+            if not id_real:
+                continue
+
+            id_string = "".join(id_real)
+            if strip_digits > 0 and len(id_string) > strip_digits:
+                id_string = id_string[:-strip_digits]
+
+            if id_string:
+                logger.debug("Recebido bruto (hid): %s", hex_list)
+                logger.debug("Processado (hid) offset=%d: %s", offset, id_string)
+                return id_string
+
+        return None
 
     # ------------------------------------------------------------------
     # Emissao de tag

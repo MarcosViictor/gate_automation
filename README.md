@@ -19,6 +19,7 @@ export MOCK_HARDWARE=false
 export RFID_MODE=hid
 export RFID_HID_VENDOR_ID=0x1234
 export RFID_HID_PRODUCT_ID=0x5678
+export RFID_HID_INTERFACE_NUMBER=
 export RFID_HID_OFFSET=18
 export RFID_HID_STRIP_HEX_DIGITS=4
 python main.py
@@ -29,6 +30,14 @@ Observacoes:
 - `RFID_HID_OFFSET` pode variar por leitor/OS. Se o codigo sair incorreto, teste `17`, `18` ou `19`.
 - `RFID_HID_STRIP_HEX_DIGITS` remove sufixo no final da tag (checksum/padding). O padrao e `4`.
 - Se nao quiser filtrar dispositivo HID por VID/PID, deixe `RFID_HID_VENDOR_ID` e `RFID_HID_PRODUCT_ID` vazios.
+- Se houver multiplas interfaces HID no mesmo dispositivo, use `RFID_HID_INTERFACE_NUMBER` para fixar a interface correta.
+- O leitor agora tenta automaticamente offsets `17`, `18` e `19` (alem do offset configurado).
+
+Configuracoes avancadas (opcionais):
+
+- `RFID_HID_USAGE_PAGE` e `RFID_HID_USAGE`: filtros extras para selecionar a interface HID correta.
+- `RFID_HID_INTERFACE_IDLE_SECONDS`: tempo sem dados para trocar automaticamente para a proxima interface HID candidata.
+- `RFID_HID_LOG_ENUMERATION`: quando `true`, mostra no log as interfaces HID candidatas encontradas.
 
 Para descobrir VID/PID no Linux:
 

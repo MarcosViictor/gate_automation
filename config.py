@@ -32,6 +32,11 @@ RFID_HID_PRODUCT_ID = os.getenv("RFID_HID_PRODUCT_ID", "")  # ex.: 0x5678
 RFID_HID_PACKET_SIZE = int(os.getenv("RFID_HID_PACKET_SIZE", "64"))
 RFID_HID_OFFSET = int(os.getenv("RFID_HID_OFFSET", "18"))
 RFID_HID_STRIP_HEX_DIGITS = int(os.getenv("RFID_HID_STRIP_HEX_DIGITS", "4"))
+RFID_HID_INTERFACE_NUMBER = os.getenv("RFID_HID_INTERFACE_NUMBER", "")
+RFID_HID_USAGE_PAGE = os.getenv("RFID_HID_USAGE_PAGE", "")
+RFID_HID_USAGE = os.getenv("RFID_HID_USAGE", "")
+RFID_HID_INTERFACE_IDLE_SECONDS = float(os.getenv("RFID_HID_INTERFACE_IDLE_SECONDS", "4.0"))
+RFID_HID_LOG_ENUMERATION = os.getenv("RFID_HID_LOG_ENUMERATION", "true").lower() == "true"
 
 # Controle de polling e redução de leituras duplicadas
 RFID_POLL_INTERVAL = float(os.getenv("RFID_POLL_INTERVAL", "0.05"))
