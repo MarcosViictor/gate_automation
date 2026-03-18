@@ -17,14 +17,14 @@ SYNC_INTERVAL = 300  # 5 minutos em segundos
 # Hardware – GPIO (Raspberry Pi)
 # Defina MOCK_HARDWARE=True para rodar em um PC sem GPIO
 # ==============================================================================
-MOCK_HARDWARE = os.getenv("MOCK_HARDWARE", "true").lower() == "true"
+MOCK_HARDWARE = os.getenv("MOCK_HARDWARE", "false").lower() == "true"
 
 GATE_RELAY_PIN = 18        # GPIO para acionar o relé do portão
 GATE_OPEN_DURATION = 5     # Tempo em segundos que o portão fica aberto
 
 RFID_PORT = os.getenv("RFID_PORT", "/dev/ttyUSB0")  # Porta serial do leitor RFID
 RFID_BAUDRATE = 9600
-RFID_MODE = os.getenv("RFID_MODE", "serial").lower()  # "serial" | "hid" | "auto"
+RFID_MODE = os.getenv("RFID_MODE", "auto").lower()  # "serial" | "hid" | "auto"
 
 # Configurações para leitores HID (modo "hid")
 RFID_HID_VENDOR_ID = os.getenv("RFID_HID_VENDOR_ID", "")  # ex.: 0x1234
