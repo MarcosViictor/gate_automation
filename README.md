@@ -52,3 +52,22 @@ Instale as dependencias:
 ```bash
 pip install -r requirements.txt
 ```
+
+## Dados de teste (mock)
+
+Quando `SEED_TEST_DATA=true` (padrao quando `MOCK_HARDWARE=true`), o app prepara dados locais para validar autorizacao:
+
+- Tag liberada: `01000000000000000000000158`
+- Tag inativa (negada): `01000000000000000000000159`
+- Tag inativa (negada): `01000000000000000000000160`
+
+Motoristas ficticios criados automaticamente:
+
+- `Alex Liberado` (tag liberada)
+- `Bruno Teste` (tags inativas)
+
+Para desativar o seed:
+
+```bash
+export SEED_TEST_DATA=false
+```

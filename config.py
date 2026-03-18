@@ -18,6 +18,10 @@ SYNC_INTERVAL = 300  # 5 minutos em segundos
 # Defina MOCK_HARDWARE=True para rodar em um PC sem GPIO
 # ==============================================================================
 MOCK_HARDWARE = os.getenv("MOCK_HARDWARE", "false").lower() == "true"
+SEED_TEST_DATA = os.getenv(
+	"SEED_TEST_DATA",
+	"true" if MOCK_HARDWARE else "false",
+).lower() == "true"
 
 GATE_RELAY_PIN = 18        # GPIO para acionar o relé do portão
 GATE_OPEN_DURATION = 5     # Tempo em segundos que o portão fica aberto
