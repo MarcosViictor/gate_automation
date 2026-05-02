@@ -67,13 +67,31 @@ class Database:
                 tag_code    TEXT NOT NULL,
                 driver_id   INTEGER,
                 authorized  INTEGER NOT NULL,
+                direction   TEXT NOT NULL DEFAULT 'IN',
                 reason      TEXT,
                 mode        TEXT NOT NULL DEFAULT 'online',
                 synced      INTEGER NOT NULL DEFAULT 0,
                 timestamp   TEXT NOT NULL DEFAULT (datetime('now','localtime'))
             );
+            
+            CREATE TABLE IF NOT EXISTS settings (
+                key         TEXT PRIMARY KEY,
+                value       TEXT NOT NULL
+            );
         """)
         conn.commit()
+
+    def get_setting(self, key: str, default: str = "") -> str:
+        row = self.fetchone("SELECT value FROM settings WHERE key = ?", (key,))
+        if row:
+            return row["value"]
+        return default
+
+    def set_setting(self, key: str, value: str):
+        self.execute(
+            "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (key, value)
+        )
 
     # ------------------------------------------------------------------
     # Helpers genéricos

@@ -28,7 +28,9 @@ class RFIDReader:
         reader.stop()
     """
 
-    def __init__(self, on_tag: Callable[[str], None]):
+    def __init__(self, reader_id: str, port_name: str, on_tag: Callable[[str, str], None]):
+        self.reader_id = reader_id
+        self.port_name = port_name
         self._on_tag = on_tag
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
@@ -40,7 +42,7 @@ class RFIDReader:
     def start(self):
         self._stop_event.clear()
         if config.MOCK_HARDWARE:
-            logger.info("RFIDReader iniciado em modo MOCK")
+            logger.info("RFIDReader [%s] iniciado em modo MOCK", self.reader_id)
             # Em mock nao levanta thread - a view injeta tags manualmente via simulate()
             return
 
@@ -61,7 +63,7 @@ class RFIDReader:
     def simulate(self, tag_code: str):
         """Injeta uma tag manualmente (apenas para mock/testes)."""
         if config.MOCK_HARDWARE:
-            self._on_tag(tag_code)
+            self._on_tag(tag_code, self.reader_id)
 
     # ------------------------------------------------------------------
     # Loop principal
@@ -98,11 +100,11 @@ class RFIDReader:
         while not self._stop_event.is_set():
             try:
                 ser = serial.Serial(
-                    port=config.RFID_PORT,
+                    port=self.port_name,
                     baudrate=config.RFID_BAUDRATE,
                     timeout=1,
                 )
-                logger.info("Leitor serial conectado em %s", config.RFID_PORT)
+                logger.info("Leitor serial [%s] conectado em %s", self.reader_id, self.port_name)
             except serial.SerialException as exc:
                 logger.warning("Erro ao abrir porta serial: %s", exc)
                 self._stop_event.wait(1)
@@ -115,7 +117,7 @@ class RFIDReader:
                         if line:
                             tag_code = self._parse_serial(line)
                             if tag_code:
-                                logger.debug("Tag lida (serial): %s", tag_code)
+                                logger.debug("Tag lida (serial %s): %s", self.reader_id, tag_code)
                                 self._emit_tag(tag_code)
                     except serial.SerialException as exc:
                         logger.warning("Leitor serial desconectado: %s", exc)
@@ -182,7 +184,7 @@ class RFIDReader:
 
                 tag_code = self._parse_hid_data(data)
                 if tag_code:
-                    logger.debug("Tag lida (hid): %s", tag_code)
+                    logger.debug("Tag lida (hid %s): %s", self.reader_id, tag_code)
                     self._emit_tag(tag_code)
 
             except (OSError, IOError) as exc:
@@ -233,8 +235,9 @@ class RFIDReader:
 
             logger.info(
                 (
-                    "Leitor HID conectado (VID=%s PID=%s interface=%s usage_page=%s usage=%s)"
+                    "Leitor HID [%s] conectado (VID=%s PID=%s interface=%s usage_page=%s usage=%s)"
                 ),
+                self.reader_id,
                 self._fmt_hex(info.get("vendor_id")),
                 self._fmt_hex(info.get("product_id")),
                 info.get("interface_number", "*"),
@@ -380,7 +383,7 @@ class RFIDReader:
 
         self._last_tag = tag_code
         self._last_tag_time = now
-        self._on_tag(tag_code)
+        self._on_tag(tag_code, self.reader_id)
 
     @staticmethod
     def _close_hid_device(device: Any | None):

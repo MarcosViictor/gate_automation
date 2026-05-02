@@ -7,6 +7,7 @@ from models.database import Database
 class AccessLog:
     tag_code: str
     authorized: bool
+    direction: str = "IN"       # "IN" | "OUT"
     mode: str = "online"        # "online" | "offline"
     driver_id: int | None = None
     reason: str | None = None
@@ -22,10 +23,10 @@ class AccessLogRepository:
     def save(self, log: AccessLog) -> None:
         self._db.execute(
             """
-            INSERT INTO access_logs (tag_code, driver_id, authorized, reason, mode, synced)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO access_logs (tag_code, driver_id, authorized, direction, reason, mode, synced)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (log.tag_code, log.driver_id, int(log.authorized),
+            (log.tag_code, log.driver_id, int(log.authorized), log.direction,
              log.reason, log.mode, int(log.synced)),
         )
 
@@ -66,6 +67,7 @@ class AccessLogRepository:
             tag_code=row["tag_code"],
             driver_id=row["driver_id"],
             authorized=bool(row["authorized"]),
+            direction=row["direction"] if "direction" in row.keys() else "IN",
             reason=row["reason"],
             mode=row["mode"],
             synced=bool(row["synced"]),

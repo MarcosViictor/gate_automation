@@ -19,7 +19,7 @@ class TagRepository:
 
     def find_by_code(self, tag_code: str) -> Tag | None:
         row = self._db.fetchone(
-            "SELECT * FROM tags WHERE tag_code = ? AND is_active = 1",
+            "SELECT * FROM tags WHERE tag_code = ?",
             (tag_code,),
         )
         if row is None:

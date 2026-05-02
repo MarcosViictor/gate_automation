@@ -1,24 +1,21 @@
 """
-Ponto de entrada da aplicação Gate Automation.
+Ponto de entrada da aplicação Gate Automation (Tkinter Lightweight GUI).
 
 Execução:
     python main.py
 
 Variáveis de ambiente opcionais:
-    MOCK_HARDWARE=true         Roda sem GPIO/serial (padrão: true)
+    MOCK_HARDWARE=true         Roda sem GPIO/serial (padrão: false)
     SEED_TEST_DATA=true        Semeia dados locais de teste (padrão: true em mock)
-    SERVER_BASE_URL=http://... Endereço do servidor local
-    RFID_PORT=/dev/ttyUSB0     Porta serial do leitor RFID
 """
-from datetime import date, datetime
+import sys
+import threading
+from datetime import datetime
 import logging
-import customtkinter as ctk
 
 import config
 from models.database import Database
-from models.driver import Driver, DriverRepository
 from models.tag import Tag, TagRepository
-from models.schedule import Schedule, ScheduleRepository
 from controllers.auth_controller import AuthController
 from controllers.sync_controller import SyncController
 from commands.rfid_reader import RFIDReader
@@ -28,173 +25,106 @@ from views.main_window import MainWindow
 logger = logging.getLogger(__name__)
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
-
 def _seed_test_data(db: Database) -> None:
-    """
-    Semeia dados locais para testes de autorizacao.
-
-    - Tag liberada: 01000000000000000000000158
-    - Tags inativas: 01000000000000000000000159 e 01000000000000000000000160
-
-    Operacao idempotente (usa server_id fixo via upsert).
-    """
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    today = date.today().isoformat()
-
-    drivers = DriverRepository(db)
     tags = TagRepository(db)
-    schedules = ScheduleRepository(db)
 
-    drivers.upsert(
-        Driver(
-            server_id=99001,
-            name="Alex Liberado",
-            cpf="000.000.000-01",
-            phone="(11) 90000-0001",
-            is_active=True,
-            updated_at=now,
-        )
-    )
-    drivers.upsert(
-        Driver(
-            server_id=99002,
-            name="Bruno Teste",
-            cpf="000.000.000-02",
-            phone="(11) 90000-0002",
-            is_active=True,
-            updated_at=now,
-        )
-    )
-
-    row_allowed = db.fetchone("SELECT id FROM drivers WHERE server_id = ?", (99001,))
-    row_inactive = db.fetchone("SELECT id FROM drivers WHERE server_id = ?", (99002,))
-    if row_allowed is None or row_inactive is None:
-        logger.warning("Nao foi possivel preparar drivers de teste")
-        return
-
-    allowed_driver_id = row_allowed["id"]
-    inactive_driver_id = row_inactive["id"]
-
-    schedules.upsert(
-        Schedule(
-            server_id=99101,
-            driver_id=allowed_driver_id,
-            scheduled_date=today,
-            time_start="00:00",
-            time_end="23:59",
-            is_active=True,
-            updated_at=now,
-        )
-    )
-
-    tags.upsert(
-        Tag(
-            server_id=99201,
-            tag_code="01000000000000000000000158",
-            driver_id=allowed_driver_id,
-            is_active=True,
-            updated_at=now,
-        )
-    )
-    tags.upsert(
-        Tag(
-            server_id=99202,
-            tag_code="01000000000000000000000159",
-            driver_id=inactive_driver_id,
-            is_active=False,
-            updated_at=now,
-        )
-    )
-    tags.upsert(
-        Tag(
-            server_id=99203,
-            tag_code="01000000000000000000000160",
-            driver_id=inactive_driver_id,
-            is_active=False,
-            updated_at=now,
-        )
-    )
-
-    logger.info(
-        (
-            "Dados de teste prontos: liberada=%s inativas=[%s, %s]"
-        ),
-        "01000000000000000000000158",
-        "01000000000000000000000159",
-        "01000000000000000000000160",
-    )
-
+    tags.upsert(Tag(server_id=99201, tag_code="01000000000000000000000158", driver_id=None, is_active=True, updated_at=now))
+    tags.upsert(Tag(server_id=99202, tag_code="01000000000000000000000159", driver_id=None, is_active=False, updated_at=now))
+    tags.upsert(Tag(server_id=99203, tag_code="01000000000000000000000160", driver_id=None, is_active=False, updated_at=now))
 
 def main():
-    # ------------------------------------------------------------------
-    # 1. Banco de dados local (SQLite – backup offline)
-    # ------------------------------------------------------------------
+    logger.info("Iniciando Gate Automation Tkinter UI...")
+
     db = Database()
     db.create_tables()
 
-    # Dados locais de teste (mock)
     if config.SEED_TEST_DATA:
         _seed_test_data(db)
 
-    # ------------------------------------------------------------------
-    # 2. Hardware
-    # ------------------------------------------------------------------
     gate = GateController()
-
-    # ------------------------------------------------------------------
-    # 3. Controllers
-    # ------------------------------------------------------------------
     sync = SyncController(db)
     auth = AuthController(db, mode="online")
+    
+    # Readers variables
+    reader_in = None
+    reader_out = None
 
-    # ------------------------------------------------------------------
-    # 4. Leitor RFID
-    # ------------------------------------------------------------------
-    rfid = RFIDReader(on_tag=lambda _: None)  # callback real definido na view
+    def start_readers(port_in: str, port_out: str):
+        nonlocal reader_in, reader_out
+        if reader_in: reader_in.stop()
+        if reader_out: reader_out.stop()
+        
+        reader_in = RFIDReader("IN", port_in, handle_tag)
+        reader_out = RFIDReader("OUT", port_out, handle_tag)
+        reader_in.start()
+        reader_out.start()
 
-    # ------------------------------------------------------------------
-    # 5. Interface gráfica
-    # ------------------------------------------------------------------
-    ctk.set_appearance_mode(config.THEME)
-    ctk.set_default_color_theme(config.COLOR_SCHEME)
+    def handle_save_ports(port_in: str, port_out: str):
+        start_readers(port_in, port_out)
 
-    window = MainWindow(
-        auth_controller=auth,
-        sync_controller=sync,
-        rfid_reader=rfid,
-        gate_controller=gate,
+    def handle_tag(tag_code: str, direction: str):
+        logger.info("Leitura: Tag=%s, Direction=%s", tag_code, direction)
+        result = auth.process(tag_code, direction)
+
+        if result.authorized:
+            gate.open()
+            
+        # Agendar atualização da UI na thread principal
+        if app:
+            app.after(0, lambda: [
+                app.refresh_logs(),
+                app.update_gate_status(result.authorized)
+            ])
+            
+            # Fecha o portão visualmente depois do tempo
+            if result.authorized:
+                app.after(config.GATE_OPEN_DURATION * 1000, lambda: app.update_gate_status(False))
+
+    def handle_sync():
+        logger.info("Forçando sincronização manual...")
+        sync._sync_cycle()
+
+    # Create Tkinter UI
+    app = MainWindow(
+        db=db,
+        on_sync=handle_sync,
+        on_save_ports=handle_save_ports,
+        on_mock_tag=handle_tag
     )
 
-    # Injeta DB nas views que precisam
-    window._views["logs"].set_database(db)
-    window._views["drivers"].set_database(db)
-    window._views["schedules"].set_database(db)
-    window._views["status"].set_database(db)
+    # Sync status callback
+    def update_mode(online: bool):
+        auth.mode = "online" if online else "offline"
+        app.after(0, lambda: app.update_net_status(online))
 
-    # Conecta atualização de status de rede à janela
-    sync._on_status_change = lambda online: (
-        window.update_connection_status(online),
-        setattr(auth, "mode", "online" if online else "offline"),
-    )
+    sync._on_status_change = update_mode
 
-    # ------------------------------------------------------------------
-    # 6. Inicia serviços em background
-    # ------------------------------------------------------------------
-    rfid.start()
+    # Read ports from DB
+    port_in = db.get_setting("RFID_PORT_IN", config.RFID_PORT_IN)
+    port_out = db.get_setting("RFID_PORT_OUT", config.RFID_PORT_OUT)
+    
+    # Start background tasks
+    start_readers(port_in, port_out)
     sync.start()
-    sync.sync_now()  # sincronização inicial imediata
 
-    # ------------------------------------------------------------------
-    # 7. Loop da interface
-    # ------------------------------------------------------------------
-    window.mainloop()
-
-    db.close()
-
+    # Start UI Loop
+    try:
+        app.mainloop()
+    except KeyboardInterrupt:
+        logger.info("Sinal recebido.")
+    finally:
+        logger.info("Encerrando serviços...")
+        if reader_in: reader_in.stop()
+        if reader_out: reader_out.stop()
+        sync.stop()
+        gate.cleanup()
+        db.close()
+        logger.info("Desligamento completo.")
 
 if __name__ == "__main__":
     main()

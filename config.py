@@ -26,7 +26,8 @@ SEED_TEST_DATA = os.getenv(
 GATE_RELAY_PIN = 18        # GPIO para acionar o relé do portão
 GATE_OPEN_DURATION = 5     # Tempo em segundos que o portão fica aberto
 
-RFID_PORT = os.getenv("RFID_PORT", "/dev/ttyUSB0")  # Porta serial do leitor RFID
+RFID_PORT_IN = os.getenv("RFID_PORT_IN", "/dev/ttyUSB0")    # Porta serial Entrada
+RFID_PORT_OUT = os.getenv("RFID_PORT_OUT", "/dev/ttyUSB1")  # Porta serial Saída
 RFID_BAUDRATE = 9600
 RFID_MODE = os.getenv("RFID_MODE", "auto").lower()  # "serial" | "hid" | "auto"
 
@@ -47,9 +48,5 @@ RFID_POLL_INTERVAL = float(os.getenv("RFID_POLL_INTERVAL", "0.05"))
 RFID_DEDUP_SECONDS = float(os.getenv("RFID_DEDUP_SECONDS", "0.30"))
 
 # ==============================================================================
-# Interface
+# Final do arquivo
 # ==============================================================================
-APP_TITLE = "Gate Automation"
-APP_GEOMETRY = "900x600"
-THEME = "dark"   # "dark" | "light" | "system"
-COLOR_SCHEME = "blue"
