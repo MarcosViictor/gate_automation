@@ -56,12 +56,12 @@ class SyncController:
     def sync_now(self) -> bool:
         """Realiza uma sincronização imediata. Retorna True se bem-sucedida."""
         try:
-            self._pull_tags()
-            self._push_logs()
+            # self._pull_tags()
+            # self._push_logs()
 
             self.last_sync = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             self._set_online(True)
-            logger.info("Sincronização concluída: %s", self.last_sync)
+            logger.info("Sincronização desativada (API simples configurada).")
             return True
 
         except requests.exceptions.ConnectionError:

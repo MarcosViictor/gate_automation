@@ -31,15 +31,37 @@ class AuthController:
         self.mode = mode  # "online" | "offline"
 
     def process(self, tag_code: str, direction: str) -> AuthResult:
-        tag = self._tags.find_by_code(tag_code)
+        import requests
+        import config
+        import logging
+        logger = logging.getLogger(__name__)
 
-        if tag is None:
-            return self._deny(tag_code, direction, "Tag não cadastrada")
+        # Faz requisição direta para a API do usuário
+        url = f"{config.SERVER_BASE_URL}/api/gate/check"
+        headers = {
+            "Authorization": "sbs",
+            "Content-Type": "application/json"
+        }
+        payload = {"code": tag_code}
 
-        if not tag.is_active:
-            return self._deny(tag_code, direction, "Tag inativa", tag.driver_id)
-
-        return self._allow(tag_code, direction, tag.driver_id)
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=5)
+            # Como não sabemos o formato exato da resposta de sucesso (se é 200 OK e se o corpo diz true/false),
+            # vamos assumir que um status code de sucesso (ex: 200) significa autorizado.
+            if response.status_code == 200:
+                return self._allow(tag_code, direction, reason="Acesso autorizado via API")
+            else:
+                reason = f"Negado pela API (Status {response.status_code})"
+                try:
+                    data = response.json()
+                    if "message" in data:
+                        reason = data["message"]
+                except:
+                    pass
+                return self._deny(tag_code, direction, reason)
+        except Exception as e:
+            logger.error("Erro de conexão com a API: %s", e)
+            return self._deny(tag_code, direction, f"Erro de conexão: {e}")
 
     # ------------------------------------------------------------------
     def _allow(

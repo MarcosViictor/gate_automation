@@ -9,7 +9,7 @@ DB_PATH = os.path.join(BASE_DIR, "data", "gate_local.db")
 # ==============================================================================
 # Servidor local (sincronização)
 # ==============================================================================
-SERVER_BASE_URL = os.getenv("SERVER_BASE_URL", "http://192.168.1.100:8000")
+SERVER_BASE_URL = os.getenv("SERVER_BASE_URL", "http://sitiobarreiras.app.br:55432")
 SERVER_TIMEOUT = 5  # segundos
 SYNC_INTERVAL = 300  # 5 minutos em segundos
 
@@ -29,11 +29,11 @@ GATE_OPEN_DURATION = 5     # Tempo em segundos que o portão fica aberto
 RFID_PORT_IN = os.getenv("RFID_PORT_IN", "/dev/ttyUSB0")    # Porta serial Entrada
 RFID_PORT_OUT = os.getenv("RFID_PORT_OUT", "/dev/ttyUSB1")  # Porta serial Saída
 RFID_BAUDRATE = 9600
-RFID_MODE = os.getenv("RFID_MODE", "auto").lower()  # "serial" | "hid" | "auto"
+RFID_MODE = os.getenv("RFID_MODE", "hid").lower()  # "serial" | "hid" | "auto"
 
 # Configurações para leitores HID (modo "hid")
-RFID_HID_VENDOR_ID = os.getenv("RFID_HID_VENDOR_ID", "")  # ex.: 0x1234
-RFID_HID_PRODUCT_ID = os.getenv("RFID_HID_PRODUCT_ID", "")  # ex.: 0x5678
+RFID_HID_VENDOR_ID = os.getenv("RFID_HID_VENDOR_ID", "0x1A86")  # ex.: 0x1A86
+RFID_HID_PRODUCT_ID = os.getenv("RFID_HID_PRODUCT_ID", "0xE010")  # ex.: 0xE010
 RFID_HID_PACKET_SIZE = int(os.getenv("RFID_HID_PACKET_SIZE", "64"))
 RFID_HID_OFFSET = int(os.getenv("RFID_HID_OFFSET", "18"))
 RFID_HID_STRIP_HEX_DIGITS = int(os.getenv("RFID_HID_STRIP_HEX_DIGITS", "4"))

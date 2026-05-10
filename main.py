@@ -60,9 +60,9 @@ def main():
         if reader_out: reader_out.stop()
         
         reader_in = RFIDReader("IN", port_in, handle_tag)
-        reader_out = RFIDReader("OUT", port_out, handle_tag)
+        # reader_out = RFIDReader("OUT", port_out, handle_tag)
         reader_in.start()
-        reader_out.start()
+        # reader_out.start()
 
     def handle_save_ports(port_in: str, port_out: str):
         start_readers(port_in, port_out)

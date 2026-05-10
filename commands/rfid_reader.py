@@ -208,49 +208,63 @@ class RFIDReader:
 
     def _connect_hid_device(self, hid_module: Any):
         self._hid_candidates = self._list_hid_candidates(hid_module)
+        vid, pid = self._get_hid_filters()
 
-        if not self._hid_candidates:
-            vid, pid = self._get_hid_filters()
-            if vid is not None or pid is not None:
-                logger.warning(
-                    "Leitor HID nao encontrado para VID=%s PID=%s",
-                    self._fmt_hex(vid),
-                    self._fmt_hex(pid),
-                )
+        device = hid_module.device()
+        info = {}
+
+        if self._hid_candidates:
+            # Encontrou via enumeração
+            info = self._hid_candidates[self._hid_candidate_idx % len(self._hid_candidates)]
+            self._hid_candidate_idx = (self._hid_candidate_idx + 1) % len(self._hid_candidates)
+            path = info.get("path")
+            
+            try:
+                if path:
+                    device.open_path(path)
+                else:
+                    device.open(info["vendor_id"], info["product_id"])
+            except Exception as exc:
+                logger.error("Falha ao conectar no leitor HID via enumeração: %s", exc)
+                return None, None
+        else:
+            # Não encontrou via enumeração. Tentar conexão direta como fallback.
+            if vid is not None and pid is not None:
+                logger.info("Enumeração vazia. Tentando conexão direta com VID=%s PID=%s", self._fmt_hex(vid), self._fmt_hex(pid))
+                try:
+                    device.open(vid, pid)
+                    info = {"vendor_id": vid, "product_id": pid}
+                except Exception as exc:
+                    logger.error("Falha na conexão direta com leitor HID: %s", exc)
+                    return None, None
             else:
-                logger.warning("Nenhum leitor HID disponivel")
-            return None, None
-
-        info = self._hid_candidates[self._hid_candidate_idx % len(self._hid_candidates)]
-        self._hid_candidate_idx = (self._hid_candidate_idx + 1) % len(self._hid_candidates)
+                logger.warning("Nenhum leitor HID encontrado e VID/PID incompletos para conexão direta.")
+                return None, None
 
         try:
-            device = hid_module.device()
-            path = info.get("path")
-            if path:
-                device.open_path(path)
-            else:
-                device.open(info["vendor_id"], info["product_id"])
             device.set_nonblocking(True)
 
             logger.info(
-                (
-                    "Leitor HID [%s] conectado (VID=%s PID=%s interface=%s usage_page=%s usage=%s)"
-                ),
+                "Leitor HID [%s] conectado (VID=%s PID=%s)",
                 self.reader_id,
                 self._fmt_hex(info.get("vendor_id")),
-                self._fmt_hex(info.get("product_id")),
-                info.get("interface_number", "*"),
-                self._fmt_hex(info.get("usage_page")),
-                self._fmt_hex(info.get("usage")),
+                self._fmt_hex(info.get("product_id"))
             )
             return device, info
         except Exception as exc:
-            logger.error("Falha ao conectar no leitor HID: %s", exc)
+            logger.error("Falha ao configurar dispositivo HID conectado: %s", exc)
             return None, None
 
     def _list_hid_candidates(self, hid_module: Any) -> list[dict[str, Any]]:
-        devices = hid_module.enumerate()
+        try:
+            devices = hid_module.enumerate()
+        except AttributeError:
+            logger.debug("Módulo HID não suporta enumerate(). Ignorando enumeração.")
+            return []
+        except Exception as exc:
+            logger.debug("Erro ao enumerar dispositivos HID: %s", exc)
+            return []
+
         if not devices:
             return []
 
