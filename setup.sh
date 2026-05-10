@@ -3,7 +3,7 @@
 
 echo "=== 1. Atualizando pacotes do sistema ==="
 sudo apt-get update
-sudo apt-get install -y python3-tk python3-venv libhidapi-hidraw0 libhidapi-libusb0
+sudo apt-get install -y python3-tk python3-venv python3-dev gcc libusb-1.0-0-dev libhidapi-hidraw0 libhidapi-libusb0
 
 echo "=== 2. Criando o ambiente virtual Python ==="
 python3 -m venv venv
