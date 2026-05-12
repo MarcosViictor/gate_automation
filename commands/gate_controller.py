@@ -49,9 +49,10 @@ class GateController:
         try:
             import RPi.GPIO as GPIO  # type: ignore
             GPIO.setmode(GPIO.BCM)
-            GPIO.setup(config.GATE_RELAY_PIN, GPIO.OUT, initial=GPIO.LOW)
+            # A maioria dos módulos de relé é Active-Low. O estado desligado é HIGH.
+            GPIO.setup(config.GATE_RELAY_PIN, GPIO.OUT, initial=GPIO.HIGH)
             self._gpio_ready = True
-            logger.info("GPIO configurado no pino %d", config.GATE_RELAY_PIN)
+            logger.info("GPIO configurado no pino %d (Lógica Active-Low)", config.GATE_RELAY_PIN)
         except ImportError:
             logger.error("RPi.GPIO não disponível. Instale no Raspberry Pi.")
         except Exception as exc:
@@ -63,11 +64,13 @@ class GateController:
             return
         try:
             import RPi.GPIO as GPIO  # type: ignore
-            GPIO.output(config.GATE_RELAY_PIN, GPIO.HIGH)
-            logger.info("Portão ABERTO (GPIO %d)", config.GATE_RELAY_PIN)
-            time.sleep(duration)
+            # Em relés Active-Low, enviar LOW fecha o circuito (liga o motor)
             GPIO.output(config.GATE_RELAY_PIN, GPIO.LOW)
-            logger.info("Portão FECHADO (GPIO %d)", config.GATE_RELAY_PIN)
+            logger.info("Portão ABERTO (Sinal LOW na GPIO %d)", config.GATE_RELAY_PIN)
+            time.sleep(duration)
+            # Voltar para HIGH abre o circuito (desliga o motor)
+            GPIO.output(config.GATE_RELAY_PIN, GPIO.HIGH)
+            logger.info("Portão FECHADO (Sinal HIGH na GPIO %d)", config.GATE_RELAY_PIN)
         except Exception as exc:
             logger.error("Erro ao acionar GPIO: %s", exc)
 
