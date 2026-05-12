@@ -49,7 +49,7 @@ class AuthController:
             # Como não sabemos o formato exato da resposta de sucesso (se é 200 OK e se o corpo diz true/false),
             # vamos assumir que um status code de sucesso (ex: 200) significa autorizado.
             if response.status_code == 200:
-                return self._allow(tag_code, direction, reason="Acesso autorizado via API")
+                return self._allow(tag_code, direction)
             else:
                 reason = f"Negado pela API (Status {response.status_code})"
                 try:

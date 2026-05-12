@@ -181,14 +181,24 @@ class RFIDReader:
                     continue
 
                 last_data_at = time.monotonic()
+                
+                # Adiciona log do dado bruto lido (similar ao Recebido Bruto do script do usuário)
+                hex_list_debug = [f"{b:02X}" for b in data]
+                while hex_list_debug and hex_list_debug[-1] == "00":
+                    hex_list_debug.pop()
+                if hex_list_debug:
+                    logger.debug("🔹 Recebido Bruto: %s", hex_list_debug)
 
                 tag_code = self._parse_hid_data(data)
                 if tag_code:
-                    logger.debug("Tag lida (hid %s): %s", self.reader_id, tag_code)
+                    logger.info("🏷️  Processado (hid %s): %s", self.reader_id, tag_code)
                     self._emit_tag(tag_code)
+                elif hex_list_debug:
+                    logger.warning("Leitura recebida, mas tag não pôde ser processada (verifique offset no _parse_hid_data).")
 
             except (OSError, IOError) as exc:
-                logger.warning("Dispositivo HID desconectado ou com erro de leitura: %s", exc)
+                logger.error("❌ Dispositivo HID desconectado ou com erro de leitura: %s", exc)
+                logger.info("Tentando reconectar...")
                 self._close_hid_device(device)
                 device = None
                 device_info = None
@@ -220,22 +230,31 @@ class RFIDReader:
             path = info.get("path")
             
             try:
+                logger.info("Tentando abrir dispositivo listado na enumeração...")
                 if path:
                     device.open_path(path)
                 else:
                     device.open(info["vendor_id"], info["product_id"])
+            except IOError as exc:
+                logger.error("⚠️ Erro ao abrir: %s", exc)
+                logger.warning("Verifique se o dispositivo está plugado ou se você tem permissão (sudo).")
+                return None, None
             except Exception as exc:
-                logger.error("Falha ao conectar no leitor HID via enumeração: %s", exc)
+                logger.error("Erro inesperado ao conectar no leitor HID via enumeração: %s", exc)
                 return None, None
         else:
             # Não encontrou via enumeração. Tentar conexão direta como fallback.
             if vid is not None and pid is not None:
-                logger.info("Enumeração vazia. Tentando conexão direta com VID=%s PID=%s", self._fmt_hex(vid), self._fmt_hex(pid))
+                logger.info("Tentando abrir dispositivo via fallback (VID: 0x%04X, PID: 0x%04X)...", vid, pid)
                 try:
                     device.open(vid, pid)
                     info = {"vendor_id": vid, "product_id": pid}
+                except IOError as exc:
+                    logger.error("⚠️ Erro ao abrir (fallback): %s", exc)
+                    logger.warning("Verifique se o dispositivo está plugado ou se você tem permissão (sudo).")
+                    return None, None
                 except Exception as exc:
-                    logger.error("Falha na conexão direta com leitor HID: %s", exc)
+                    logger.error("Erro inesperado na conexão direta com leitor HID: %s", exc)
                     return None, None
             else:
                 logger.warning("Nenhum leitor HID encontrado e VID/PID incompletos para conexão direta.")
@@ -244,12 +263,12 @@ class RFIDReader:
         try:
             device.set_nonblocking(True)
 
-            logger.info(
-                "Leitor HID [%s] conectado (VID=%s PID=%s)",
+            logger.info("✅ Leitor HID [%s] conectado com sucesso (VID=%s PID=%s)!",
                 self.reader_id,
                 self._fmt_hex(info.get("vendor_id")),
                 self._fmt_hex(info.get("product_id"))
             )
+            logger.info("📡 Aproxime uma TAG RFID...\n")
             return device, info
         except Exception as exc:
             logger.error("Falha ao configurar dispositivo HID conectado: %s", exc)
