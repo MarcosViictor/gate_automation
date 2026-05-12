@@ -232,7 +232,13 @@ class RFIDReader:
             try:
                 logger.info("Tentando abrir dispositivo listado na enumeração...")
                 if path:
-                    device.open_path(path)
+                    try:
+                        device.open_path(path)
+                    except IOError as path_exc:
+                        logger.warning("open_path falhou (%s). Tentando fallback via open(VID, PID)...", path_exc)
+                        # Reinstancia o device para garantir estado limpo
+                        device = hid_module.device()
+                        device.open(info["vendor_id"], info["product_id"])
                 else:
                     device.open(info["vendor_id"], info["product_id"])
             except IOError as exc:
