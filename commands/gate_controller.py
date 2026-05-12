@@ -9,13 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 class GateController:
-    """
-    Controla o relé físico que aciona o portão.
-
-    Em modo MOCK apenas loga o comando – sem GPIO real.
-    Em produção usa RPi.GPIO para pulsar o pino configurado.
-    """
-
     def __init__(self):
         self._lock = threading.Lock()
         self._gpio_ready = False
@@ -23,9 +16,6 @@ class GateController:
         if not config.MOCK_HARDWARE:
             self._setup_gpio()
 
-    # ------------------------------------------------------------------
-    # API pública
-    # ------------------------------------------------------------------
     def open(self, duration: int = config.GATE_OPEN_DURATION):
         """Aciona o relé por `duration` segundos em thread separada."""
         thread = threading.Thread(
@@ -33,9 +23,6 @@ class GateController:
         )
         thread.start()
 
-    # ------------------------------------------------------------------
-    # Implementação
-    # ------------------------------------------------------------------
     def _pulse(self, duration: int):
         with self._lock:
             if config.MOCK_HARDWARE:
@@ -47,12 +34,12 @@ class GateController:
 
     def _setup_gpio(self):
         try:
-            import RPi.GPIO as GPIO  # type: ignore
+            import RPi.GPIO as GPIO  
             GPIO.setmode(GPIO.BCM)
-            # A maioria dos módulos de relé é Active-Low. O estado desligado é HIGH.
-            GPIO.setup(config.GATE_RELAY_PIN, GPIO.OUT, initial=GPIO.HIGH)
+            # Como o relé é 5V e o Raspberry é 3.3V, usamos GPIO.IN (Alta Impedância) para o estado desligado.
+            GPIO.setup(config.GATE_RELAY_PIN, GPIO.IN)
             self._gpio_ready = True
-            logger.info("GPIO configurado no pino %d (Lógica Active-Low)", config.GATE_RELAY_PIN)
+            logger.info("GPIO configurado no pino %d (Hack Alta Impedância 5V)", config.GATE_RELAY_PIN)
         except ImportError:
             logger.error("RPi.GPIO não disponível. Instale no Raspberry Pi.")
         except Exception as exc:
@@ -64,13 +51,13 @@ class GateController:
             return
         try:
             import RPi.GPIO as GPIO  # type: ignore
-            # Em relés Active-Low, enviar LOW fecha o circuito (liga o motor)
-            GPIO.output(config.GATE_RELAY_PIN, GPIO.LOW)
+            # Configura como saída e envia sinal LOW (Fecha o circuito e liga o motor)
+            GPIO.setup(config.GATE_RELAY_PIN, GPIO.OUT, initial=GPIO.LOW)
             logger.info("Portão ABERTO (Sinal LOW na GPIO %d)", config.GATE_RELAY_PIN)
             time.sleep(duration)
-            # Voltar para HIGH abre o circuito (desliga o motor)
-            GPIO.output(config.GATE_RELAY_PIN, GPIO.HIGH)
-            logger.info("Portão FECHADO (Sinal HIGH na GPIO %d)", config.GATE_RELAY_PIN)
+            # Volta para Entrada (Alta Impedância), cortando a fuga de corrente de 5V e desligando o relé
+            GPIO.setup(config.GATE_RELAY_PIN, GPIO.IN)
+            logger.info("Portão FECHADO (Alta Impedância na GPIO %d)", config.GATE_RELAY_PIN)
         except Exception as exc:
             logger.error("Erro ao acionar GPIO: %s", exc)
 
@@ -78,7 +65,7 @@ class GateController:
         """Libera os recursos GPIO ao encerrar o sistema."""
         if not config.MOCK_HARDWARE and self._gpio_ready:
             try:
-                import RPi.GPIO as GPIO  # type: ignore
+                import RPi.GPIO as GPIO  
                 GPIO.cleanup()
             except Exception:
                 pass
