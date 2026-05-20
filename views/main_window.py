@@ -160,7 +160,8 @@ class MainWindow(tk.Tk):
         
         logs = self.logs_repo.find_recent(limit=15)
         for log in logs:
-            status = "AUTORIZADO" if log.authorized else f"NEGADO ({log.reason})"
+            sync_label = "Sincronizado" if log.synced else "Offline"
+            status = f"{'AUTORIZADO' if log.authorized else f'NEGADO ({log.reason})'} ({sync_label})"
             self.tree.insert("", "end", values=(
                 log.timestamp,
                 log.tag_code,

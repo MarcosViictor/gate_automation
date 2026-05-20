@@ -1,0 +1,16 @@
+[Unit]
+Description=Serviço de Automação de Portão (Gate Automation Headless)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/gate_automation
+ExecStart=/bin/bash /opt/gate_automation/run_headless.sh
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

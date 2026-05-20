@@ -38,7 +38,15 @@ def _seed_test_data(db: Database) -> None:
     tags.upsert(Tag(server_id=99203, tag_code="01000000000000000000000160", driver_id=None, is_active=False, updated_at=now))
 
 def main():
-    logger.info("Iniciando Gate Automation Tkinter UI...")
+    logger.info("Iniciando Gate Automation...")
+
+    import os
+    headless = os.getenv("HEADLESS", "false").lower() == "true"
+    
+    # Detecção automática de ambiente sem display no Linux
+    if not headless and sys.platform.startswith("linux") and not os.getenv("DISPLAY"):
+        logger.info("Nenhuma variável DISPLAY detectada no Linux. Ativando modo headless automaticamente.")
+        headless = True
 
     db = Database()
     db.create_tables()
@@ -74,7 +82,7 @@ def main():
         if result.authorized:
             gate.open()
             
-        # Agendar atualização da UI na thread principal
+        # Agendar atualização da UI na thread principal se a tela estiver ativa
         if app:
             app.after(0, lambda: [
                 app.refresh_logs(),
@@ -89,18 +97,22 @@ def main():
         logger.info("Forçando sincronização manual...")
         sync._sync_cycle()
 
-    # Create Tkinter UI
-    app = MainWindow(
-        db=db,
-        on_sync=handle_sync,
-        on_save_ports=handle_save_ports,
-        on_mock_tag=handle_tag
-    )
+    # Create Tkinter UI if not headless
+    if not headless:
+        app = MainWindow(
+            db=db,
+            on_sync=handle_sync,
+            on_save_ports=handle_save_ports,
+            on_mock_tag=handle_tag
+        )
+    else:
+        app = None
 
     # Sync status callback
     def update_mode(online: bool):
         auth.mode = "online" if online else "offline"
-        app.after(0, lambda: app.update_net_status(online))
+        if app:
+            app.after(0, lambda: app.update_net_status(online))
 
     sync._on_status_change = update_mode
 
@@ -112,9 +124,14 @@ def main():
     start_readers(port_in, port_out)
     sync.start()
 
-    # Start UI Loop
+    # Start loop
     try:
-        app.mainloop()
+        if headless:
+            logger.info("Serviço iniciado com sucesso em modo HEADLESS. Pressione Ctrl+C para encerrar.")
+            exit_event = threading.Event()
+            exit_event.wait()
+        else:
+            app.mainloop()
     except KeyboardInterrupt:
         logger.info("Sinal recebido.")
     finally:

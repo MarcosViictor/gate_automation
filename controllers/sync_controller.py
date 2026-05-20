@@ -56,12 +56,12 @@ class SyncController:
     def sync_now(self) -> bool:
         """Realiza uma sincronização imediata. Retorna True se bem-sucedida."""
         try:
-            # self._pull_tags()
-            # self._push_logs()
+            self._pull_tags()
+            self._push_logs()
 
             self.last_sync = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             self._set_online(True)
-            logger.info("Sincronização desativada (API simples configurada).")
+            logger.info("Sincronização concluída com sucesso.")
             return True
 
         except requests.exceptions.ConnectionError:
@@ -80,17 +80,23 @@ class SyncController:
     # Pull do servidor → banco local
     # ------------------------------------------------------------------
     def _pull_tags(self):
-        data = self._get("/sync/tags")
-        for item in data:
-            self._tags.upsert(
-                Tag(
-                    server_id=item["id"],
-                    tag_code=item["tag_code"],
-                    driver_id=None,
-                    is_active=item.get("is_active", True),
-                    updated_at=item.get("updated_at"),
+        try:
+            data = self._get("/sync/tags")
+            for item in data:
+                self._tags.upsert(
+                    Tag(
+                        server_id=item["id"],
+                        tag_code=item["tag_code"],
+                        driver_id=None,
+                        is_active=item.get("is_active", True),
+                        updated_at=item.get("updated_at"),
+                    )
                 )
-            )
+        except requests.exceptions.HTTPError as he:
+            if he.response is not None and he.response.status_code == 404:
+                logger.warning("Endpoint /sync/tags não encontrado (404). Mantendo tags locais existentes.")
+            else:
+                raise he
 
     # ------------------------------------------------------------------
     # Push: logs de acesso pendentes → servidor
@@ -98,8 +104,13 @@ class SyncController:
     def _push_logs(self):
         unsynced = self._logs.find_unsynced()
         for log in unsynced:
+            headers = {
+                "Authorization": "sbs",
+                "Content-Type": "application/json"
+            }
             try:
-                requests.post(
+                # Tenta enviar para o endpoint oficial de logs de acesso
+                response = requests.post(
                     f"{config.SERVER_BASE_URL}/sync/access-logs",
                     json={
                         "tag_code": log.tag_code,
@@ -110,9 +121,27 @@ class SyncController:
                     },
                     timeout=config.SERVER_TIMEOUT,
                 )
+                response.raise_for_status()
                 self._logs.mark_synced(log.id)
-            except Exception:
-                break  # aborta no primeiro erro; tenta novamente no próximo ciclo
+            except requests.exceptions.HTTPError as he:
+                # Se retornar 404, simulamos o envio enviando para o endpoint /api/gate/check
+                if he.response is not None and he.response.status_code == 404:
+                    try:
+                        logger.info("Endpoint /sync/access-logs não encontrado (404). Simulando via /api/gate/check...")
+                        response = requests.post(
+                            f"{config.SERVER_BASE_URL}/api/gate/check",
+                            json={"code": log.tag_code},
+                            headers=headers,
+                            timeout=config.SERVER_TIMEOUT,
+                        )
+                        response.raise_for_status()
+                        if response.status_code == 200:
+                            self._logs.mark_synced(log.id)
+                    except Exception as exc:
+                        logger.error("Erro ao simular envio de log via gate/check: %s", exc)
+                        raise exc
+                else:
+                    raise he
 
     # ------------------------------------------------------------------
     # Helpers
