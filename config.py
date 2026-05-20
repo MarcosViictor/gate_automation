@@ -46,7 +46,3 @@ RFID_HID_LOG_ENUMERATION = os.getenv("RFID_HID_LOG_ENUMERATION", "true").lower()
 # Controle de polling e redução de leituras duplicadas
 RFID_POLL_INTERVAL = float(os.getenv("RFID_POLL_INTERVAL", "0.05"))
 RFID_DEDUP_SECONDS = float(os.getenv("RFID_DEDUP_SECONDS", "0.30"))
-
-# ==============================================================================
-# Final do arquivo
-# ==============================================================================
