@@ -36,6 +36,7 @@ def _seed_test_data(db: Database) -> None:
     tags.upsert(Tag(server_id=99201, tag_code="01000000000000000000000158", driver_id=None, is_active=True, updated_at=now))
     tags.upsert(Tag(server_id=99202, tag_code="01000000000000000000000159", driver_id=None, is_active=False, updated_at=now))
     tags.upsert(Tag(server_id=99203, tag_code="01000000000000000000000160", driver_id=None, is_active=False, updated_at=now))
+    tags.upsert(Tag(server_id=99204, tag_code="01E28069150000401D63E8C9", driver_id=None, is_active=True, updated_at=now))
 
 def main():
     logger.info("Iniciando Gate Automation...")
@@ -50,6 +51,15 @@ def main():
 
     db = Database()
     db.create_tables()
+
+    # Garante que a tag do usuário esteja sempre cadastrada e ativa no banco de dados local
+    try:
+        tags_repo = TagRepository(db)
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        tags_repo.upsert(Tag(server_id=99204, tag_code="01E28069150000401D63E8C9", driver_id=None, is_active=True, updated_at=now_str))
+        logger.info("Tag 01E28069150000401D63E8C9 garantida no banco local como ativa.")
+    except Exception as e:
+        logger.error("Erro ao garantir tag do usuário no banco: %s", e)
 
     if config.SEED_TEST_DATA:
         _seed_test_data(db)
@@ -80,7 +90,10 @@ def main():
         result = auth.process(tag_code, direction)
 
         if result.authorized:
+            logger.info("🔓 ACESSO AUTORIZADO para a tag %s", tag_code)
             gate.open()
+        else:
+            logger.warning("🔒 ACESSO NEGADO para a tag %s. Motivo: %s", tag_code, result.reason)
             
         # Agendar atualização da UI na thread principal se a tela estiver ativa
         if app:
