@@ -11,7 +11,7 @@ class TestDatabase(unittest.TestCase):
         # Import config and override DB_PATH dynamically for tests
         import config
         config.DB_PATH = self.db_path
-        self.db = Database()
+        self.db = Database(self.db_path)
         self.db.create_tables()
 
     def tearDown(self):

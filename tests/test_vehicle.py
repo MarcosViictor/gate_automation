@@ -11,7 +11,7 @@ class TestVehicleRepository(unittest.TestCase):
             os.remove(self.db_path)
         import config
         config.DB_PATH = self.db_path
-        self.db = Database()
+        self.db = Database(self.db_path)
         self.db.create_tables()
         self.tag_repo = TagRepository(self.db)
         self.vehicle_repo = VehicleRepository(self.db)

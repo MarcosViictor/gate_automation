@@ -14,6 +14,9 @@ class AccessLog:
     timestamp: str | None = None
     synced: bool = False
     id: int | None = None
+    vehicle_plate: str | None = None
+    vehicle_model: str | None = None
+    portaria_id: int | None = None
 
 
 class AccessLogRepository:
@@ -33,9 +36,12 @@ class AccessLogRepository:
     def find_recent(self, limit: int = 50) -> list[AccessLog]:
         rows = self._db.fetchall(
             """
-            SELECT al.*, d.name as driver_name
+            SELECT al.*, d.name as driver_name,
+                   v.plate as vehicle_plate, v.model as vehicle_model, v.portaria_id
             FROM access_logs al
             LEFT JOIN drivers d ON al.driver_id = d.id
+            LEFT JOIN tags t ON al.tag_code = t.tag_code
+            LEFT JOIN vehicles v ON t.id = v.tag_id
             ORDER BY al.timestamp DESC
             LIMIT ?
             """,
@@ -77,4 +83,9 @@ class AccessLogRepository:
         if "driver_name" in row.keys() and row["driver_name"]:
             log.reason = log.reason  # mantém reason; driver_name fica no campo extra
             log._driver_name = row["driver_name"]
+            
+        # campos de veículo
+        log.vehicle_plate = row["vehicle_plate"] if "vehicle_plate" in row.keys() else None
+        log.vehicle_model = row["vehicle_model"] if "vehicle_model" in row.keys() else None
+        log.portaria_id = row["portaria_id"] if "portaria_id" in row.keys() else None
         return log
