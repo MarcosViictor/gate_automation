@@ -87,7 +87,7 @@ class MainWindow(tk.Tk):
         self.lbl_net_status = ttk.Label(inner_top, text="● OFFLINE", style="Danger.TLabel")
         self.lbl_net_status.pack(side='left')
 
-        btn_sync = ttk.Button(inner_top, text="⟳ Sincronizar Agora", style="Primary.TButton", command=self.on_sync)
+        btn_sync = ttk.Button(inner_top, text="⟳ Sincronizar Agora", style="Accent.TButton", command=self.on_sync)
         btn_sync.pack(side='right')
 
         # Treeview Container
@@ -120,11 +120,11 @@ class MainWindow(tk.Tk):
         inner_mock = ttk.Frame(mock_frame, style="Card.TFrame")
         inner_mock.pack(fill='x', padx=10, pady=8)
         
-        ttk.Label(inner_mock, text="Simulador (ex: IN:0100...):", font=("Segoe UI", 9, "bold"), background="#ffffff").pack(side='left', padx=(0, 10))
+        ttk.Label(inner_mock, text="Simulador (ex: IN:0100...):", font=("Segoe UI", 9, "bold"), background="#ffffff", foreground="#64748b").pack(side='left', padx=(0, 10))
         self.ent_mock = ttk.Entry(inner_mock, width=30, font=("Consolas", 10))
         self.ent_mock.pack(side='left', fill='x', expand=True, padx=5)
         self.ent_mock.bind('<Return>', lambda e: self._handle_mock())
-        ttk.Button(inner_mock, text="Ler Tag", command=self._handle_mock).pack(side='right', padx=5)
+        ttk.Button(inner_mock, text="Ler Tag", style="Accent.TButton", command=self._handle_mock).pack(side='right', padx=5)
 
         self.refresh_logs()
 
@@ -149,17 +149,17 @@ class MainWindow(tk.Tk):
         inner_config = ttk.Frame(frame, style="Card.TFrame")
         inner_config.pack(fill='both', padx=20, pady=20)
 
-        ttk.Label(inner_config, text="Configuração das Portas Seriais", font=("Segoe UI", 14, "bold"), background="#ffffff", foreground="#0056b3").grid(row=0, column=0, columnspan=2, sticky='w', pady=(0, 15))
+        ttk.Label(inner_config, text="Configuração das Portas Seriais", font=("Segoe UI", 14, "bold"), background="#ffffff", foreground="#1e3a8a").grid(row=0, column=0, columnspan=2, sticky='w', pady=(0, 15))
 
         port_in = self.db.get_setting("RFID_PORT_IN", "/dev/ttyUSB0")
         port_out = self.db.get_setting("RFID_PORT_OUT", "/dev/ttyUSB1")
 
-        ttk.Label(inner_config, text="Leitor Entrada (IN):", background="#ffffff", font=("Segoe UI", 10, "bold")).grid(row=1, column=0, sticky='w', pady=10)
+        ttk.Label(inner_config, text="Leitor Entrada (IN):", background="#ffffff", font=("Segoe UI", 10, "bold"), foreground="#64748b").grid(row=1, column=0, sticky='w', pady=10)
         self.ent_port_in = ttk.Entry(inner_config, width=35, font=("Consolas", 10))
         self.ent_port_in.insert(0, port_in)
         self.ent_port_in.grid(row=1, column=1, padx=15, pady=10)
 
-        ttk.Label(inner_config, text="Leitor Saída (OUT):", background="#ffffff", font=("Segoe UI", 10, "bold")).grid(row=2, column=0, sticky='w', pady=10)
+        ttk.Label(inner_config, text="Leitor Saída (OUT):", background="#ffffff", font=("Segoe UI", 10, "bold"), foreground="#64748b").grid(row=2, column=0, sticky='w', pady=10)
         self.ent_port_out = ttk.Entry(inner_config, width=35, font=("Consolas", 10))
         self.ent_port_out.insert(0, port_out)
         self.ent_port_out.grid(row=2, column=1, padx=15, pady=10)
@@ -232,7 +232,7 @@ class MainWindow(tk.Tk):
 
         self.tree_vehicles.pack(expand=True, fill='both', padx=2, pady=2)
         
-        btn_refresh = ttk.Button(tab, text="⟳ Atualizar Lista", command=self.refresh_vehicles)
+        btn_refresh = ttk.Button(tab, text="⟳ Atualizar Lista", style="Primary.TButton", command=self.refresh_vehicles)
         btn_refresh.pack(pady=5)
 
         self.refresh_vehicles()
@@ -272,7 +272,7 @@ class MainWindow(tk.Tk):
 
         self.tree_tags.pack(expand=True, fill='both', padx=2, pady=2)
         
-        btn_refresh = ttk.Button(tab, text="⟳ Atualizar Lista", command=self.refresh_tags)
+        btn_refresh = ttk.Button(tab, text="⟳ Atualizar Lista", style="Primary.TButton", command=self.refresh_tags)
         btn_refresh.pack(pady=5)
 
         self.refresh_tags()
