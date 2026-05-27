@@ -16,7 +16,16 @@ class MainWindow(tk.Tk):
 
         self.title("Gate Automation Monitor")
         self.geometry("650x500")
-        self.configure(bg="#f4f6f8")
+        BG_APP = "#f1f5f9"
+        BG_CARD = "#ffffff"
+        COLOR_PRIMARY = "#1e3a8a"
+        COLOR_ACCENT = "#eab308"
+        COLOR_ACCENT_HOVER = "#ca8a04"
+        COLOR_TEXT_MAIN = "#0f172a"
+        COLOR_TEXT_MUTED = "#64748b"
+        BORDER_COLOR = "#cbd5e1"
+
+        self.configure(bg=BG_APP)
         
         # Usar o tema clam como base e estilizá-lo
         style = ttk.Style(self)
@@ -24,23 +33,29 @@ class MainWindow(tk.Tk):
             style.theme_use("clam")
 
         # Configurações globais de estilo
-        style.configure(".", font=("Segoe UI", 10), background="#f4f6f8", foreground="#333333")
-        style.configure("TNotebook", background="#e9ecef", borderwidth=0)
-        style.configure("TNotebook.Tab", font=("Segoe UI", 10, "bold"), padding=[15, 5], background="#dee2e6")
-        style.map("TNotebook.Tab", background=[("selected", "#ffffff")], foreground=[("selected", "#0056b3")])
+        style.configure(".", font=("Segoe UI", 10), background=BG_APP, foreground=COLOR_TEXT_MAIN)
+        style.configure("TNotebook", background=COLOR_PRIMARY, borderwidth=0)
+        style.configure("TNotebook.Tab", font=("Segoe UI", 10, "bold"), padding=[15, 6], background=COLOR_PRIMARY, foreground="white", borderwidth=0)
+        style.map("TNotebook.Tab", 
+                  background=[("selected", BG_APP), ("active", "#1e40af")], 
+                  foreground=[("selected", COLOR_PRIMARY), ("active", COLOR_ACCENT)])
         
-        style.configure("Card.TFrame", background="#ffffff", borderwidth=1, relief="solid", bordercolor="#dee2e6")
+        style.configure("Card.TFrame", background=BG_CARD, borderwidth=1, relief="solid", bordercolor=BORDER_COLOR)
         
-        style.configure("Primary.TButton", font=("Segoe UI", 10, "bold"), background="#0d6efd", foreground="white", padding=6)
-        style.map("Primary.TButton", background=[("active", "#0b5ed7")])
+        style.configure("Primary.TButton", font=("Segoe UI", 10, "bold"), background=COLOR_PRIMARY, foreground="white", padding=6)
+        style.map("Primary.TButton", background=[("active", "#1e40af")])
         
-        style.configure("Success.TLabel", font=("Segoe UI", 14, "bold"), foreground="#198754", background="#ffffff")
-        style.configure("Danger.TLabel", font=("Segoe UI", 14, "bold"), foreground="#dc3545", background="#ffffff")
-        style.configure("Status.TLabel", font=("Segoe UI", 12, "bold"), foreground="#6c757d", background="#ffffff")
+        style.configure("Accent.TButton", font=("Segoe UI", 10, "bold"), background=COLOR_ACCENT, foreground=COLOR_PRIMARY, padding=6)
+        style.map("Accent.TButton", background=[("active", COLOR_ACCENT_HOVER)])
+        
+        style.configure("Success.TLabel", font=("Segoe UI", 14, "bold"), foreground="#10b981", background=BG_CARD)
+        style.configure("Danger.TLabel", font=("Segoe UI", 14, "bold"), foreground="#ef4444", background=BG_CARD)
+        style.configure("Status.TLabel", font=("Segoe UI", 12, "bold"), foreground=COLOR_PRIMARY, background=BG_CARD)
 
-        style.configure("Treeview", font=("Segoe UI", 10), rowheight=25, borderwidth=0)
-        style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"), background="#f8f9fa", foreground="#495057")
-        style.map("Treeview", background=[("selected", "#e7f1ff")], foreground=[("selected", "#0c63e4")])
+        style.configure("Treeview", font=("Segoe UI", 10), rowheight=26, borderwidth=0, background=BG_CARD, fieldbackground=BG_CARD, foreground=COLOR_TEXT_MAIN)
+        style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"), background=COLOR_PRIMARY, foreground="white", relief="flat")
+        style.map("Treeview.Heading", background=[("active", "#1e40af")], foreground=[("active", "white")])
+        style.map("Treeview", background=[("selected", "#dbeafe")], foreground=[("selected", COLOR_PRIMARY)])
 
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(expand=True, fill='both', padx=15, pady=15)
