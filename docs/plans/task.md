@@ -1,8 +1,10 @@
-# Task List: Gate Timer Implementation
+# Task List: Gate Behavior Refinements (Timer and Travel States)
 
 | Task ID | Description | Status |
 |---|---|---|
-| Task 1 | Add State Variables and `close_gate` Helper to `main.py` | [x] |
-| Task 2 | Comment out existing tag handling and implement new timer logic in `handle_tag` | [x] |
-| Task 3 | Clean up timer on application shutdown | [x] |
-| Task 4 | Manual Verification of the 90-second Timer | [x] |
+| Task 1 | Explore project context and physical motor behaviors | [x] |
+| Task 2 | Propose 2-3 approaches to handle Open/Closing physical scenarios | [/] |
+| Task 3 | Ask clarifying questions / get user selection | [ ] |
+| Task 4 | Present final design | [ ] |
+| Task 5 | Write design doc and commit | [ ] |
+| Task 6 | Create implementation plan | [ ] |
