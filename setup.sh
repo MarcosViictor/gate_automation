@@ -10,14 +10,14 @@ fi
 echo "=== 1. Atualizando pacotes do sistema ==="
 # --allow-releaseinfo-change resolve problemas em repositórios antigos (como Raspbian Buster)
 sudo apt-get update --allow-releaseinfo-change || sudo apt-get update
-sudo apt-get install -y python3-tk python3-venv python3-dev gcc libusb-1.0-0-dev libhidapi-hidraw0 libhidapi-libusb0 pkg-config libhidapi-dev
+sudo apt-get install -y python3-tk python3-venv python3-dev gcc libusb-1.0-0-dev libhidapi-hidraw0 libhidapi-libusb0 pkg-config libhidapi-dev python3-rpi.gpio
 
 echo "=== 2. Criando o ambiente virtual Python ==="
 # Limpa venv anterior corrompido se existir
 if [ -d "venv" ]; then
     rm -rf venv
 fi
-python3 -m venv venv
+python3 -m venv --system-site-packages venv
 source venv/bin/activate
 
 echo "=== 3. Atualizando o pip dentro do ambiente virtual ==="
