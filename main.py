@@ -30,13 +30,24 @@ logging.basicConfig(
 )
 
 def _seed_test_data(db: Database) -> None:
+    from models.vehicle import Vehicle, VehicleRepository
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     tags = TagRepository(db)
+    vehicles = VehicleRepository(db)
 
     tags.upsert(Tag(server_id=99201, tag_code="01000000000000000000000158", driver_id=None, is_active=True, updated_at=now))
     tags.upsert(Tag(server_id=99202, tag_code="01000000000000000000000159", driver_id=None, is_active=False, updated_at=now))
     tags.upsert(Tag(server_id=99203, tag_code="01000000000000000000000160", driver_id=None, is_active=False, updated_at=now))
     tags.upsert(Tag(server_id=99204, tag_code="01E28069150000401D63E8C9", driver_id=None, is_active=True, updated_at=now))
+
+    # Fetch seeded tag IDs to associate with vehicles
+    t1 = tags.find_by_code("01000000000000000000000158")
+    t2 = tags.find_by_code("01E28069150000401D63E8C9")
+
+    if t1:
+        vehicles.upsert(Vehicle(server_id=101, plate="ABC-1234", model="Toyota Hilux", portaria_id=1, tag_id=t1.id, is_active=True, updated_at=now))
+    if t2:
+        vehicles.upsert(Vehicle(server_id=102, plate="XYZ-9876", model="Honda Civic", portaria_id=2, tag_id=t2.id, is_active=True, updated_at=now))
 
 def main():
     logger.info("Iniciando Gate Automation...")
