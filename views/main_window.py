@@ -46,6 +46,8 @@ class MainWindow(tk.Tk):
         self.notebook.pack(expand=True, fill='both', padx=15, pady=15)
 
         self._build_monitor_tab()
+        self._build_vehicles_tab()
+        self._build_tags_tab()
         self._build_readers_tab()
         
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -78,17 +80,21 @@ class MainWindow(tk.Tk):
         tree_frame.pack(expand=True, fill='both', padx=10, pady=(0, 10))
 
         # Treeview para Logs
-        columns = ("time", "tag", "dir", "status")
+        columns = ("time", "tag", "vehicle", "portaria", "dir", "status")
         self.tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=10)
         self.tree.heading("time", text="Horário")
         self.tree.heading("tag", text="Tag")
+        self.tree.heading("vehicle", text="Veículo")
+        self.tree.heading("portaria", text="Portaria")
         self.tree.heading("dir", text="Direção")
         self.tree.heading("status", text="Status")
         
-        self.tree.column("time", width=140)
-        self.tree.column("tag", width=180)
-        self.tree.column("dir", width=70, anchor='center')
-        self.tree.column("status", width=150)
+        self.tree.column("time", width=120)
+        self.tree.column("tag", width=150)
+        self.tree.column("vehicle", width=130)
+        self.tree.column("portaria", width=65, anchor='center')
+        self.tree.column("dir", width=65, anchor='center')
+        self.tree.column("status", width=180)
 
         self.tree.pack(expand=True, fill='both', padx=2, pady=2)
 
@@ -162,9 +168,13 @@ class MainWindow(tk.Tk):
         for log in logs:
             sync_label = "Sincronizado" if log.synced else "Offline"
             status = f"{'AUTORIZADO' if log.authorized else f'NEGADO ({log.reason})'} ({sync_label})"
+            vehicle_info = f"{log.vehicle_plate} ({log.vehicle_model})" if log.vehicle_plate else "-"
+            portaria_info = str(log.portaria_id) if log.portaria_id is not None else "-"
             self.tree.insert("", "end", values=(
                 log.timestamp,
                 log.tag_code,
+                vehicle_info,
+                portaria_info,
                 log.direction,
                 status
             ))
@@ -180,6 +190,96 @@ class MainWindow(tk.Tk):
             self.lbl_net_status.config(text="● ONLINE", style="Success.TLabel")
         else:
             self.lbl_net_status.config(text="● OFFLINE", style="Danger.TLabel")
+
+    def _build_vehicles_tab(self):
+        from models.vehicle import VehicleRepository
+        self.vehicle_repo = VehicleRepository(self.db)
+        
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="Veículos")
+
+        frame = ttk.Frame(tab, style="Card.TFrame")
+        frame.pack(expand=True, fill='both', padx=10, pady=10)
+
+        columns = ("plate", "model", "portaria", "tag", "status")
+        self.tree_vehicles = ttk.Treeview(frame, columns=columns, show="headings", height=15)
+        self.tree_vehicles.heading("plate", text="Placa")
+        self.tree_vehicles.heading("model", text="Modelo")
+        self.tree_vehicles.heading("portaria", text="Portaria ID")
+        self.tree_vehicles.heading("tag", text="Tag Código")
+        self.tree_vehicles.heading("status", text="Status")
+
+        self.tree_vehicles.column("plate", width=100)
+        self.tree_vehicles.column("model", width=150)
+        self.tree_vehicles.column("portaria", width=100, anchor='center')
+        self.tree_vehicles.column("tag", width=200)
+        self.tree_vehicles.column("status", width=100, anchor='center')
+
+        self.tree_vehicles.pack(expand=True, fill='both', padx=2, pady=2)
+        
+        btn_refresh = ttk.Button(tab, text="⟳ Atualizar Lista", command=self.refresh_vehicles)
+        btn_refresh.pack(pady=5)
+
+        self.refresh_vehicles()
+
+    def refresh_vehicles(self):
+        for item in self.tree_vehicles.get_children():
+            self.tree_vehicles.delete(item)
+        
+        vehicles = self.vehicle_repo.find_all()
+        for v in vehicles:
+            status = "Ativo" if v.is_active else "Inativo"
+            self.tree_vehicles.insert("", "end", values=(
+                v.plate,
+                v.model or "-",
+                v.portaria_id or "-",
+                v.tag_code or "Não vinculada",
+                status
+            ))
+
+    def _build_tags_tab(self):
+        from models.tag import TagRepository
+        self.tag_repo = TagRepository(self.db)
+
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="Tags")
+
+        frame = ttk.Frame(tab, style="Card.TFrame")
+        frame.pack(expand=True, fill='both', padx=10, pady=10)
+
+        columns = ("code", "status")
+        self.tree_tags = ttk.Treeview(frame, columns=columns, show="headings", height=15)
+        self.tree_tags.heading("code", text="Tag Código")
+        self.tree_tags.heading("status", text="Status")
+
+        self.tree_tags.column("code", width=300)
+        self.tree_tags.column("status", width=150, anchor='center')
+
+        self.tree_tags.pack(expand=True, fill='both', padx=2, pady=2)
+        
+        btn_refresh = ttk.Button(tab, text="⟳ Atualizar Lista", command=self.refresh_tags)
+        btn_refresh.pack(pady=5)
+
+        self.refresh_tags()
+
+    def refresh_tags(self):
+        for item in self.tree_tags.get_children():
+            self.tree_tags.delete(item)
+        
+        tags = self.tag_repo.find_all()
+        for t in tags:
+            status = "Ativa" if t.is_active else "Inativa"
+            self.tree_tags.insert("", "end", values=(
+                t.tag_code,
+                status
+            ))
+
+    def refresh_all_tabs(self):
+        self.refresh_logs()
+        if hasattr(self, 'refresh_vehicles'):
+            self.refresh_vehicles()
+        if hasattr(self, 'refresh_tags'):
+            self.refresh_tags()
 
     def on_close(self):
         self.destroy()

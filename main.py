@@ -109,7 +109,7 @@ def main():
         # Agendar atualização da UI na thread principal se a tela estiver ativa
         if app:
             app.after(0, lambda: [
-                app.refresh_logs(),
+                app.refresh_all_tabs(),
                 app.update_gate_status(result.authorized)
             ])
             
@@ -119,7 +119,9 @@ def main():
 
     def handle_sync():
         logger.info("Forçando sincronização manual...")
-        sync._sync_cycle()
+        sync.sync_now()
+        if app:
+            app.after(0, lambda: app.refresh_all_tabs())
 
     # Create Tkinter UI if not headless
     if not headless:
