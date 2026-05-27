@@ -205,6 +205,12 @@ def main():
         if reader_in: reader_in.stop()
         if reader_out: reader_out.stop()
         sync.stop()
+        
+        # Cancela temporizador ativo no desligamento
+        with gate_timer_lock:
+            if gate_timer:
+                gate_timer.cancel()
+                
         gate.cleanup()
         db.close()
         logger.info("Desligamento completo.")
