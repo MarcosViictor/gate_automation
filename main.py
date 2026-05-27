@@ -79,6 +79,19 @@ def main():
     sync = SyncController(db)
     auth = AuthController(db, mode="online")
     
+    # Timer state variables for auto-close
+    gate_timer = None
+    gate_timer_lock = threading.Lock()
+
+    def close_gate():
+        nonlocal gate_timer
+        logger.info("⏰ Temporizador expirou. Enviando impulso para FECHAR o portão.")
+        gate.open()  # Envia o impulso de fechamento
+        with gate_timer_lock:
+            gate_timer = None
+        if app:
+            app.after(0, lambda: app.update_gate_status(False))
+
     # Readers variables
     reader_in = None
     reader_out = None

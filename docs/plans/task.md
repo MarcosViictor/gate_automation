@@ -1,7 +1,8 @@
-# Task List: UI Design Improvements
+# Task List: Gate Timer Implementation
 
 | Task ID | Description | Status |
 |---|---|---|
-| Task 1 | UI Stylesheet Refactoring and Accent Styles | [x] Completed |
-| Task 2 | Apply Accent Styles and Cleanup Inline Backgrounds | [x] Completed |
-| Task 3 | Verify Entire Application Launch and Functionality | [x] Completed |
+| Task 1 | Add State Variables and `close_gate` Helper to `main.py` | [/] |
+| Task 2 | Comment out existing tag handling and implement new timer logic in `handle_tag` | [ ] |
+| Task 3 | Clean up timer on application shutdown | [ ] |
+| Task 4 | Manual Verification of the 90-second Timer | [ ] |

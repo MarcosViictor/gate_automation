@@ -10,13 +10,14 @@ class Database:
     Este banco serve como backup para operação offline do Raspberry Pi.
     """
 
-    def __init__(self):
-        os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    def __init__(self, db_path: str | None = None):
+        self.db_path = db_path or DB_PATH
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         self._conn: sqlite3.Connection | None = None
 
     def connect(self) -> sqlite3.Connection:
         if self._conn is None:
-            self._conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+            self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
             self._conn.row_factory = sqlite3.Row
             self._conn.execute("PRAGMA journal_mode=WAL;")
             self._conn.execute("PRAGMA foreign_keys=ON;")
