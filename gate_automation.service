@@ -1,12 +1,20 @@
 [Unit]
-Description=Serviço de Automação de Portão (Gate Automation Headless)
+Description=Serviço de Automação de Portão (Gate Automation)
 After=network.target
 
 [Service]
 Type=simple
 User=root
 WorkingDirectory=/opt/gate_automation
-ExecStart=/bin/bash /opt/gate_automation/run_headless.sh
+ExecStart=/opt/gate_automation/venv/bin/python main.py
+Environment=HEADLESS=true
+Environment=MOCK_HARDWARE=false
+Environment=RFID_MODE=hid
+Environment=RFID_HID_VENDOR_ID=0x1A86
+Environment=RFID_HID_PRODUCT_ID=0xE010
+Environment=RFID_HID_OFFSET=18
+Environment=RFID_HID_STRIP_HEX_DIGITS=6
+EnvironmentFile=-/opt/gate_automation/.env
 Restart=always
 RestartSec=5
 StandardOutput=journal
