@@ -78,6 +78,18 @@ class Database:
                 key         TEXT PRIMARY KEY,
                 value       TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS vehicles (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                server_id   INTEGER UNIQUE,
+                plate       TEXT NOT NULL UNIQUE,
+                tag_id      INTEGER,
+                portaria_id INTEGER,
+                model       TEXT,
+                is_active   INTEGER NOT NULL DEFAULT 1,
+                updated_at  TEXT,
+                FOREIGN KEY (tag_id) REFERENCES tags(id)
+            );
         """)
         conn.commit()
 
