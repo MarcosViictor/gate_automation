@@ -65,12 +65,35 @@ def main():
 
     # Garante que a tag do usuário esteja sempre cadastrada e ativa no banco de dados local
     try:
+        from models.driver import Driver, DriverRepository
+        from models.vehicle import Vehicle, VehicleRepository
+        
         tags_repo = TagRepository(db)
+        drivers_repo = DriverRepository(db)
+        vehicles_repo = VehicleRepository(db)
+        
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Tag antiga
         tags_repo.upsert(Tag(server_id=99204, tag_code="01E28069150000401D63E8C9", driver_id=None, is_active=True, updated_at=now_str))
-        logger.info("Tag 01E28069150000401D63E8C9 garantida no banco local como ativa.")
+        
+        # Inserindo motorista ritinha
+        drivers_repo.upsert(Driver(server_id=99901, name="ritinha", is_active=True, updated_at=now_str))
+        active_drivers = drivers_repo.find_all_active()
+        ritinha_driver = next((d for d in active_drivers if d.name == "ritinha"), None)
+        ritinha_id = ritinha_driver.id if ritinha_driver else None
+        
+        # Inserindo tag ritinha
+        tags_repo.upsert(Tag(server_id=99205, tag_code="01E28069150000401D63E8C5", driver_id=ritinha_id, is_active=True, updated_at=now_str))
+        ritinha_tag = tags_repo.find_by_code("01E28069150000401D63E8C5")
+        
+        if ritinha_tag:
+            # Inserindo veículo ritinha
+            vehicles_repo.upsert(Vehicle(server_id=103, plate="RIT-0000", model="carro ritinha", tag_id=ritinha_tag.id, is_active=True, updated_at=now_str))
+            
+        logger.info("Tags padroes garantidas no banco local como ativas (inclui ritinha).")
     except Exception as e:
-        logger.error("Erro ao garantir tag do usuário no banco: %s", e)
+        logger.error("Erro ao garantir tag do usuario no banco: %s", e)
 
     if config.SEED_TEST_DATA:
         _seed_test_data(db)
