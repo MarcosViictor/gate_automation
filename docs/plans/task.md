@@ -7,4 +7,4 @@
 | Task 3 | Propose 2-3 approaches | [x] |
 | Task 4 | Present final design | [x] |
 | Task 5 | Write design doc and commit | [x] |
-| Task 6 | Create implementation plan | [ ] |
+| Task 6 | Create implementation plan | [x] |
