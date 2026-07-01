@@ -1,8 +1,10 @@
-# Task List: Ultrasonic Sensor Implementation
+# Task List: Dual Reader (IN/OUT) Integration
 
 | Task ID | Description | Status |
 |---|---|---|
-| Task 1 | Add Configuration Variables | [x] |
-| Task 2 | Create the UltrasonicSensor Class | [x] |
-| Task 3 | Refactor GateController to accept a Sensor Mock | [x] |
-| Task 4 | Implement Active Closing Logic in GateController | [x] |
+| Task 1 | Explore project context | [x] |
+| Task 2 | Ask clarifying questions | [x] |
+| Task 3 | Propose 2-3 approaches | [x] |
+| Task 4 | Present final design | [x] |
+| Task 5 | Write design doc and commit | [x] |
+| Task 6 | Create implementation plan | [ ] |
