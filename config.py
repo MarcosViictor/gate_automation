@@ -46,3 +46,12 @@ RFID_HID_LOG_ENUMERATION = os.getenv("RFID_HID_LOG_ENUMERATION", "true").lower()
 # Controle de polling e redução de leituras duplicadas
 RFID_POLL_INTERVAL = float(os.getenv("RFID_POLL_INTERVAL", "0.05"))
 RFID_DEDUP_SECONDS = float(os.getenv("RFID_DEDUP_SECONDS", "0.30"))
+
+# ==============================================================================
+# Sensor Ultrassônico (JSN-SR04T)
+# ==============================================================================
+ULTRASONIC_TRIGGER_PIN = int(os.getenv("ULTRASONIC_TRIGGER_PIN", "23"))
+ULTRASONIC_ECHO_PIN = int(os.getenv("ULTRASONIC_ECHO_PIN", "24"))
+ULTRASONIC_PRESENCE_THRESHOLD = float(os.getenv("ULTRASONIC_PRESENCE_THRESHOLD", "1.5")) # metros
+GATE_SAFE_CLOSE_DELAY = int(os.getenv("GATE_SAFE_CLOSE_DELAY", "3")) # segundos
+GATE_FALLBACK_TIMEOUT = int(os.getenv("GATE_FALLBACK_TIMEOUT", "120")) # segundos
