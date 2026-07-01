@@ -11,7 +11,7 @@ requests>=2.31.0
 pyserial>=3.5
 
 # Comunicação HID com leitor RFID USB (modo RFID_MODE=hid)
-hidapi>=0.14.0
+# hidapi>=0.14.0  # Instalado via apt no setup.sh para evitar erros de SSL
 
 # GPIO do Raspberry Pi – instale apenas no hardware real
 # RPi.GPIO>=0.7.1

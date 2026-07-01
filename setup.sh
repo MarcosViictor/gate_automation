@@ -24,8 +24,10 @@ echo "=== 3. Atualizando o pip dentro do ambiente virtual ==="
 pip install --upgrade pip
 
 echo "=== 4. Instalando bibliotecas do projeto ==="
+
+sudo apt install -y python3-hidapi python3-hid
 pip install -r requirements.txt
-pip install hidapi
+
 
 echo "=== 5. Instalando dependência do GPIO (exclusivo para Raspberry Pi) ==="
 pip install RPi.GPIO
