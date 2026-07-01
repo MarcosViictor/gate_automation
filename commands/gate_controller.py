@@ -9,9 +9,10 @@ logger = logging.getLogger(__name__)
 
 
 class GateController:
-    def __init__(self):
+    def __init__(self, sensor=None):
         self._lock = threading.Lock()
         self._gpio_ready = False
+        self.sensor = sensor
 
         if not config.MOCK_HARDWARE:
             self._setup_gpio()
@@ -60,6 +61,46 @@ class GateController:
             logger.info("Portão FECHADO (Alta Impedância na GPIO %d)", config.GATE_RELAY_PIN)
         except Exception as exc:
             logger.error("Erro ao acionar GPIO: %s", exc)
+
+    def _pulse_active_close(self):
+        if config.MOCK_HARDWARE:
+            logger.info("[MOCK] Portão ABERTO (Fechamento Ativo)")
+        else:
+            self._gpio_open_cmd()
+
+        # Phase 1: Wait for vehicle to arrive
+        timeout = time.time() + config.GATE_FALLBACK_TIMEOUT
+        vehicle_arrived = False
+        while time.time() < timeout:
+            if self.sensor and self.sensor.is_vehicle_present():
+                vehicle_arrived = True
+                break
+            time.sleep(0.5)
+
+        # Phase 2: Wait for vehicle to pass completely
+        if vehicle_arrived:
+            logger.info("Veículo detectado. Aguardando passagem...")
+            while self.sensor and self.sensor.is_vehicle_present():
+                time.sleep(0.5)
+            logger.info("Passagem concluída. Aguardando safe delay...")
+            time.sleep(config.GATE_SAFE_CLOSE_DELAY)
+        else:
+            logger.info("Timeout de fallback atingido. Nenhum veículo passou.")
+
+        if config.MOCK_HARDWARE:
+            logger.info("[MOCK] Portão FECHADO (Fechamento Ativo)")
+        else:
+            self._gpio_close_cmd()
+
+    def _gpio_open_cmd(self):
+        if not self._gpio_ready: return
+        import RPi.GPIO as GPIO  # type: ignore
+        GPIO.setup(config.GATE_RELAY_PIN, GPIO.OUT, initial=GPIO.LOW)
+
+    def _gpio_close_cmd(self):
+        if not self._gpio_ready: return
+        import RPi.GPIO as GPIO  # type: ignore
+        GPIO.setup(config.GATE_RELAY_PIN, GPIO.IN)
 
     def cleanup(self):
         """Libera os recursos GPIO ao encerrar o sistema."""
