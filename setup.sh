@@ -32,10 +32,7 @@ pip install -r requirements.txt
 echo "=== 5. Instalando dependência do GPIO (exclusivo para Raspberry Pi) ==="
 pip install RPi.GPIO
 
-echo "=== 6. Configurando banco de dados local ==="
-mkdir -p data
-sudo chown -R $USER:$USER data
-chmod -R 775 data
+
 
 echo ""
 echo "=== Instalação Concluída com Sucesso! ==="

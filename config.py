@@ -1,5 +1,15 @@
 import os
+from dotenv import load_dotenv, set_key
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ENV_FILE_PATH = os.path.join(BASE_DIR, ".env")
+load_dotenv(ENV_FILE_PATH)
+
+def update_env(key: str, value: str):
+    if not os.path.exists(ENV_FILE_PATH):
+        open(ENV_FILE_PATH, 'a').close()
+    set_key(ENV_FILE_PATH, key, value)
+    os.environ[key] = value
 # ==============================================================================
 # Caminhos
 # ==============================================================================

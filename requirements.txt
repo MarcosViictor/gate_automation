@@ -6,6 +6,9 @@
 # Requisições HTTP (sincronização com servidor)
 requests>=2.31.0
 
+# Gerenciamento de Variáveis de Ambiente (.env)
+python-dotenv>=1.0.0
+
 # Comunicação serial com o leitor RFID (Raspberry Pi)
 # Em modo mock (MOCK_HARDWARE=true) não é obrigatório
 pyserial>=3.5
