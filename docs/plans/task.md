@@ -1,10 +1,8 @@
-# Task List: Gate Behavior Refinements (Timer and Travel States)
+# Task List: Ultrasonic Sensor Implementation
 
 | Task ID | Description | Status |
 |---|---|---|
-| Task 1 | Explore project context and physical motor behaviors | [x] |
-| Task 2 | Propose 2-3 approaches to handle Open/Closing physical scenarios | [/] |
-| Task 3 | Ask clarifying questions / get user selection | [ ] |
-| Task 4 | Present final design | [ ] |
-| Task 5 | Write design doc and commit | [ ] |
-| Task 6 | Create implementation plan | [ ] |
+| Task 1 | Add Configuration Variables | [x] |
+| Task 2 | Create the UltrasonicSensor Class | [x] |
+| Task 3 | Refactor GateController to accept a Sensor Mock | [x] |
+| Task 4 | Implement Active Closing Logic in GateController | [x] |

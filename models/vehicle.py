@@ -12,7 +12,7 @@ class Vehicle:
     id: int | None = None
     server_id: int | None = None
     updated_at: str | None = None
-    tag_code: str | None = None  # Joined field for ease of display
+    tag_code: str | None = None  
 
 class VehicleRepository:
     def __init__(self, db: Database):
