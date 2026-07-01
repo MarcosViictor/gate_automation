@@ -101,19 +101,7 @@ def main():
     gate = GateController()
     sync = SyncController(db)
     auth = AuthController(db, mode="online")
-    
-    # Timer state variables for auto-close
-    gate_timer = None
-    gate_timer_lock = threading.Lock()
 
-    def close_gate():
-        nonlocal gate_timer
-        logger.info("⏰ Temporizador expirou. Enviando impulso para FECHAR o portão.")
-        gate.open()  # Envia o impulso de fechamento
-        with gate_timer_lock:
-            gate_timer = None
-        if app:
-            app.after(0, lambda: app.update_gate_status(False))
 
     # Readers variables
     reader_in = None
@@ -125,52 +113,20 @@ def main():
         if reader_out: reader_out.stop()
         
         reader_in = RFIDReader("IN", port_in, handle_tag)
-        # reader_out = RFIDReader("OUT", port_out, handle_tag)
+        reader_out = RFIDReader("OUT", port_out, handle_tag)
         reader_in.start()
-        # reader_out.start()
+        reader_out.start()
 
     def handle_save_ports(port_in: str, port_out: str):
         start_readers(port_in, port_out)
 
     def handle_tag(tag_code: str, direction: str):
-        nonlocal gate_timer
         logger.info("Leitura: Tag=%s, Direction=%s", tag_code, direction)
         result = auth.process(tag_code, direction)
 
-        # Comentado o código original conforme solicitado
-        # if result.authorized:
-        #     logger.info("🔓 ACESSO AUTORIZADO para a tag %s", tag_code)
-        #     gate.open()
-        # else:
-        #     logger.warning("🔒 ACESSO NEGADO para a tag %s. Motivo: %s", tag_code, result.reason)
-        #     
-        # # Agendar atualização da UI na thread principal se a tela estiver ativa
-        # if app:
-        #     app.after(0, lambda: [
-        #         app.refresh_all_tabs(),
-        #         app.update_gate_status(result.authorized)
-        #     ])
-        #     
-        #     # Fecha o portão visualmente depois do tempo
-        #     if result.authorized:
-        #         app.after(config.GATE_OPEN_DURATION * 1000, lambda: app.update_gate_status(False))
-
-        # Nova funcionalidade de temporizador de 1:30 para fechar o portão
         if result.authorized:
             logger.info("🔓 ACESSO AUTORIZADO para a tag %s", tag_code)
-            
-            with gate_timer_lock:
-                if gate_timer is not None:
-                    logger.info("Reiniciando o temporizador de 1:30 para fechar o portão.")
-                    gate_timer.cancel()
-                    gate_timer = None
-                else:
-                    logger.info("Enviando impulso para ABRIR o portão.")
-                    gate.open()
-                
-                # Agenda o fechamento do portão para 90 segundos (1:30)
-                gate_timer = threading.Timer(90.0, close_gate)
-                gate_timer.start()
+            gate.open()
         else:
             logger.warning("🔒 ACESSO NEGADO para a tag %s. Motivo: %s", tag_code, result.reason)
 
@@ -228,12 +184,6 @@ def main():
         if reader_in: reader_in.stop()
         if reader_out: reader_out.stop()
         sync.stop()
-        
-        # Cancela temporizador ativo no desligamento
-        with gate_timer_lock:
-            if gate_timer:
-                gate_timer.cancel()
-                
         gate.cleanup()
         db.close()
         logger.info("Desligamento completo.")
