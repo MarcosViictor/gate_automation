@@ -13,14 +13,21 @@ class GateController:
         self._lock = threading.Lock()
         self._gpio_ready = False
         self.sensor = sensor
+        self._is_active = False
 
         if not config.MOCK_HARDWARE:
             self._setup_gpio()
 
     def open(self, duration: int = config.GATE_OPEN_DURATION):
         """Aciona o relé por `duration` segundos em thread separada."""
+        with self._lock:
+            if self._is_active:
+                logger.warning("Portão já está em ciclo de abertura/fechamento. Ignorando novo comando.")
+                return
+            self._is_active = True
+
         thread = threading.Thread(
-            target=self._pulse, args=(duration,), daemon=True
+            target=self._pulse_active_close, daemon=True
         )
         thread.start()
 
@@ -63,34 +70,38 @@ class GateController:
             logger.error("Erro ao acionar GPIO: %s", exc)
 
     def _pulse_active_close(self):
-        if config.MOCK_HARDWARE:
-            logger.info("[MOCK] Portão ABERTO (Fechamento Ativo)")
-        else:
-            self._gpio_open_cmd()
-
-        # Phase 1: Wait for vehicle to arrive
-        timeout = time.time() + config.GATE_FALLBACK_TIMEOUT
-        vehicle_arrived = False
-        while time.time() < timeout:
-            if self.sensor and self.sensor.is_vehicle_present():
-                vehicle_arrived = True
-                break
-            time.sleep(0.5)
-
-        # Phase 2: Wait for vehicle to pass completely
-        if vehicle_arrived:
-            logger.info("Veículo detectado. Aguardando passagem...")
-            while self.sensor and self.sensor.is_vehicle_present():
+        try:
+            if config.MOCK_HARDWARE:
+                logger.info("[MOCK] Portão ABERTO (Fechamento Ativo)")
+            else:
+                self._gpio_open_cmd()
+    
+            # Phase 1: Wait for vehicle to arrive
+            timeout = time.time() + config.GATE_FALLBACK_TIMEOUT
+            vehicle_arrived = False
+            while time.time() < timeout:
+                if self.sensor and self.sensor.is_vehicle_present():
+                    vehicle_arrived = True
+                    break
                 time.sleep(0.5)
-            logger.info("Passagem concluída. Aguardando safe delay...")
-            time.sleep(config.GATE_SAFE_CLOSE_DELAY)
-        else:
-            logger.info("Timeout de fallback atingido. Nenhum veículo passou.")
-
-        if config.MOCK_HARDWARE:
-            logger.info("[MOCK] Portão FECHADO (Fechamento Ativo)")
-        else:
-            self._gpio_close_cmd()
+    
+            # Phase 2: Wait for vehicle to pass completely
+            if vehicle_arrived:
+                logger.info("Veículo detectado. Aguardando passagem...")
+                while self.sensor and self.sensor.is_vehicle_present():
+                    time.sleep(0.5)
+                logger.info("Passagem concluída. Aguardando safe delay...")
+                time.sleep(config.GATE_SAFE_CLOSE_DELAY)
+            else:
+                logger.info("Timeout de fallback atingido. Nenhum veículo passou.")
+    
+            if config.MOCK_HARDWARE:
+                logger.info("[MOCK] Portão FECHADO (Fechamento Ativo)")
+            else:
+                self._gpio_close_cmd()
+        finally:
+            with self._lock:
+                self._is_active = False
 
     def _gpio_open_cmd(self):
         if not self._gpio_ready: return
