@@ -9,9 +9,10 @@ logger = logging.getLogger(__name__)
 
 
 class GateController:
-    def __init__(self):
+    def __init__(self, sensor=None):
         self._lock = threading.Lock()
         self._gpio_ready = False
+        self.sensor = sensor
 
         if not config.MOCK_HARDWARE:
             self._setup_gpio()
