@@ -13,12 +13,13 @@ class GateController:
     def __init__(self):
         self._lock = threading.Lock()
         self._gpio_ready = False
-        self._ultrasonic_sensor = (
-            UltrasonicSensor() if config.ULTRASONIC_ENABLED else None
-        )
 
         if not config.MOCK_HARDWARE:
             self._setup_gpio()
+
+        self._ultrasonic_sensor = (
+            UltrasonicSensor() if config.ULTRASONIC_ENABLED else None
+        )
 
     def open(self, duration: int = config.GATE_OPEN_DURATION):
         """Aciona o relé por `duration` segundos em thread separada."""
@@ -29,10 +30,11 @@ class GateController:
 
     def _pulse(self, duration: int):
         with self._lock:
+            self._wait_until_clear_to_activate_relay()
+
             if config.MOCK_HARDWARE:
                 logger.info("[MOCK] Portão ABERTO por %d segundo(s)", duration)
                 time.sleep(duration)
-                self._log_clear_state_after_relay_release()
                 logger.info("[MOCK] Portão FECHADO")
             else:
                 self._gpio_open(duration)
@@ -41,6 +43,7 @@ class GateController:
         try:
             import RPi.GPIO as GPIO  
             GPIO.setmode(GPIO.BCM)
+            GPIO.setwarnings(False)
             # Como o relé é 5V e o Raspberry é 3.3V, usamos GPIO.IN (Alta Impedância) para o estado desligado.
             GPIO.setup(config.GATE_RELAY_PIN, GPIO.IN)
             self._gpio_ready = True
@@ -74,18 +77,28 @@ class GateController:
                 except Exception as exc:
                     logger.error("Erro ao desligar relé GPIO: %s", exc)
 
-        if relay_activated:
-            self._log_clear_state_after_relay_release()
-
-    def _log_clear_state_after_relay_release(self):
-        """Registra o estado da área sem interferir no pulso do relé."""
+    def _wait_until_clear_to_activate_relay(self):
+        """Aguarda área livre antes de permitir o pulso do relé."""
         if not config.ULTRASONIC_ENABLED or self._ultrasonic_sensor is None:
             return
 
-        if not self._ultrasonic_sensor.is_clear():
-            logger.warning(
-                "Área obstruída detectada após liberação do relé; pulso do relé foi preservado"
+        blocked_since = time.monotonic()
+        next_critical_at = blocked_since + config.ULTRASONIC_SAFETY_TIMEOUT
+
+        while not self._ultrasonic_sensor.is_clear():
+            now = time.monotonic()
+            if now >= next_critical_at:
+                logger.critical(
+                    "Área obstruída há mais de %.0f segundo(s); relé não será acionado",
+                    now - blocked_since,
+                )
+                next_critical_at += config.ULTRASONIC_SAFETY_TIMEOUT
+
+            logger.info(
+                "Área obstruída; relé aguardando liberação para acionar em %.1f segundo(s)",
+                config.ULTRASONIC_RECHECK_INTERVAL,
             )
+            time.sleep(config.ULTRASONIC_RECHECK_INTERVAL)
 
     def cleanup(self):
         """Libera os recursos GPIO ao encerrar o sistema."""
@@ -95,6 +108,6 @@ class GateController:
         if not config.MOCK_HARDWARE and self._gpio_ready:
             try:
                 import RPi.GPIO as GPIO  
-                GPIO.cleanup()
+                GPIO.cleanup(config.GATE_RELAY_PIN)
             except Exception:
                 pass
