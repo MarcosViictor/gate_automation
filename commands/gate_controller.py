@@ -31,7 +31,8 @@ class GateController:
         with self._lock:
             if config.MOCK_HARDWARE:
                 logger.info("[MOCK] Portão ABERTO por %d segundo(s)", duration)
-                self._wait_until_clear_to_close(duration)
+                time.sleep(duration)
+                self._log_clear_state_after_relay_release()
                 logger.info("[MOCK] Portão FECHADO")
             else:
                 self._gpio_open(duration)
@@ -53,42 +54,38 @@ class GateController:
         if not self._gpio_ready:
             logger.error("GPIO não inicializado – portão não acionado")
             return
+        GPIO = None
+        relay_activated = False
         try:
             import RPi.GPIO as GPIO  # type: ignore
             # Configura como saída e envia sinal LOW (Fecha o circuito e liga o motor)
             GPIO.setup(config.GATE_RELAY_PIN, GPIO.OUT, initial=GPIO.LOW)
+            relay_activated = True
             logger.info("Portão ABERTO (Sinal LOW na GPIO %d)", config.GATE_RELAY_PIN)
-            self._wait_until_clear_to_close(duration)
-            # Volta para Entrada (Alta Impedância), cortando a fuga de corrente de 5V e desligando o relé
-            GPIO.setup(config.GATE_RELAY_PIN, GPIO.IN)
-            logger.info("Portão FECHADO (Alta Impedância na GPIO %d)", config.GATE_RELAY_PIN)
+            time.sleep(duration)
         except Exception as exc:
             logger.error("Erro ao acionar GPIO: %s", exc)
+        finally:
+            if GPIO is not None and relay_activated:
+                try:
+                    # Volta para Entrada (Alta Impedância), cortando a fuga de corrente de 5V e desligando o relé
+                    GPIO.setup(config.GATE_RELAY_PIN, GPIO.IN)
+                    logger.info("Portão FECHADO (Alta Impedância na GPIO %d)", config.GATE_RELAY_PIN)
+                except Exception as exc:
+                    logger.error("Erro ao desligar relé GPIO: %s", exc)
 
-    def _wait_until_clear_to_close(self, duration: int):
-        """Aguarda o tempo aberto e só libera fechamento se a área estiver livre."""
-        time.sleep(duration)
+        if relay_activated:
+            self._log_clear_state_after_relay_release()
 
+    def _log_clear_state_after_relay_release(self):
+        """Registra o estado da área sem interferir no pulso do relé."""
         if not config.ULTRASONIC_ENABLED or self._ultrasonic_sensor is None:
             return
 
-        blocked_since = time.monotonic()
-        next_critical_at = blocked_since + config.ULTRASONIC_SAFETY_TIMEOUT
-
-        while not self._ultrasonic_sensor.is_clear():
-            now = time.monotonic()
-            if now >= next_critical_at:
-                logger.critical(
-                    "Área obstruída há mais de %.0f segundo(s); portão permanece aberto por segurança",
-                    now - blocked_since,
-                )
-                next_critical_at += config.ULTRASONIC_SAFETY_TIMEOUT
-
-            logger.info(
-                "Área obstruída; nova checagem em %.1f segundo(s)",
-                config.ULTRASONIC_RECHECK_INTERVAL,
+        if not self._ultrasonic_sensor.is_clear():
+            logger.warning(
+                "Área obstruída detectada após liberação do relé; pulso do relé foi preservado"
             )
-            time.sleep(config.ULTRASONIC_RECHECK_INTERVAL)
 
     def cleanup(self):
         """Libera os recursos GPIO ao encerrar o sistema."""
