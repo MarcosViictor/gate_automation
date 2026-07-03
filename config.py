@@ -26,6 +26,39 @@ SEED_TEST_DATA = os.getenv(
 GATE_RELAY_PIN = 18        # GPIO para acionar o relé do portão
 GATE_OPEN_DURATION = 5     # Tempo em segundos que o portão fica aberto
 
+# ==============================================================================
+# Sensor Ultrassônico (JSN-SR04T) - validação de área livre antes de fechar
+# ==============================================================================
+ULTRASONIC_ENABLED = os.getenv("ULTRASONIC_ENABLED", "true").lower() == "true"
+
+ULTRASONIC_TRIG_PIN = int(os.getenv("ULTRASONIC_TRIG_PIN", "23"))
+ULTRASONIC_ECHO_PIN = int(os.getenv("ULTRASONIC_ECHO_PIN", "24"))
+
+# Distância (cm) a partir da qual a área é considerada livre para fechar.
+# ATENÇÃO: valor precisa ser calibrado em campo de acordo com a posição física do sensor.
+ULTRASONIC_CLEAR_DISTANCE_CM = float(os.getenv("ULTRASONIC_CLEAR_DISTANCE_CM", "40.0"))
+
+# Zona cega do sensor AJ-SR04M: leituras abaixo disso são inválidas.
+ULTRASONIC_MIN_VALID_DISTANCE_CM = float(os.getenv("ULTRASONIC_MIN_VALID_DISTANCE_CM", "20.0"))
+
+# Alcance máximo confiável do sensor: leituras acima disso são ruído/inválidas.
+ULTRASONIC_MAX_VALID_DISTANCE_CM = float(os.getenv("ULTRASONIC_MAX_VALID_DISTANCE_CM", "450.0"))
+
+# Intervalo entre re-checagens quando a área está obstruída, em segundos.
+ULTRASONIC_RECHECK_INTERVAL = float(os.getenv("ULTRASONIC_RECHECK_INTERVAL", "3.0"))
+
+# Intervalo entre disparos consecutivos dentro de uma mesma leitura.
+ULTRASONIC_SAMPLE_INTERVAL = float(os.getenv("ULTRASONIC_SAMPLE_INTERVAL", "0.06"))
+
+# Tempo máximo re-tentando antes de começar a logar alerta crítico periódico.
+ULTRASONIC_SAFETY_TIMEOUT = float(os.getenv("ULTRASONIC_SAFETY_TIMEOUT", "300"))
+
+# Timeout de uma leitura individual do sensor, quando suportado pela biblioteca.
+ULTRASONIC_READ_TIMEOUT = float(os.getenv("ULTRASONIC_READ_TIMEOUT", "0.5"))
+
+# Modo mock: "clear" simula área livre; "blocked" simula área obstruída.
+MOCK_ULTRASONIC_STATE = os.getenv("MOCK_ULTRASONIC_STATE", "clear").lower()
+
 RFID_PORT_IN = os.getenv("RFID_PORT_IN", "/dev/ttyUSB0")    # Porta serial Entrada
 RFID_PORT_OUT = os.getenv("RFID_PORT_OUT", "/dev/ttyUSB1")  # Porta serial Saída
 RFID_BAUDRATE = 9600

@@ -58,6 +58,29 @@ Você também pode forçar a execução Headless explicitamente:
 HEADLESS=true ./main.sh
 ```
 
+### Teste real do sensor ultrassônico no Raspberry Pi
+Antes de acionar o portão, valide o AJ-SR04M/JSN-SR04T isoladamente:
+```bash
+MOCK_HARDWARE=false ULTRASONIC_ENABLED=true python3 test_ultrasonic.py
+```
+
+O teste usa por padrão:
+```bash
+ULTRASONIC_TRIG_PIN=23
+ULTRASONIC_ECHO_PIN=24
+ULTRASONIC_CLEAR_DISTANCE_CM=40.0
+```
+
+Para testar o sistema real completo no Raspberry:
+```bash
+MOCK_HARDWARE=false ULTRASONIC_ENABLED=true HEADLESS=true ./main.sh
+```
+
+Se precisar desabilitar temporariamente o sensor e voltar ao comportamento antigo:
+```bash
+ULTRASONIC_ENABLED=false HEADLESS=true ./main.sh
+```
+
 ---
 
 ## 🔄 Inicialização Automática no Boot (Serviço Systemd)
