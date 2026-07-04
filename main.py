@@ -161,7 +161,22 @@ def main():
         # Nova funcionalidade de temporizador de 1:30 para fechar o portão
         if result.authorized:
             logger.info("🔓 ACESSO AUTORIZADO para a tag %s", tag_code)
-            logger.info("Evento marcado: AGUARDANDO_PASSAGEM")
+            logger.info("Evento marcado: AGUARDANDO_ABERTURA")
+            
+            def track_passage_lifecycle():
+                wait_time = 0
+                import time
+                while gate_monitor.get_state() != GATE_OPEN and wait_time < (config.GATE_MAX_RETRY_ATTEMPTS * config.GATE_PULSE_RESPONSE_SECONDS + 5):
+                    time.sleep(1)
+                    wait_time += 1
+                
+                if gate_monitor.get_state() == GATE_OPEN:
+                    logger.info("Evento marcado: AGUARDANDO_PASSAGEM")
+                    time.sleep(config.GATE_PASSAGE_CONFIRMATION_SECONDS)
+                    logger.warning("Passagem nao confirmada dentro da janela configurada")
+                    logger.info("Evento marcado: PASSAGEM_NAO_CONFIRMADA")
+
+            threading.Thread(target=track_passage_lifecycle, daemon=True).start()
             
             with gate_timer_lock:
                 if gate_timer is not None:

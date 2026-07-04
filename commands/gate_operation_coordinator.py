@@ -44,6 +44,11 @@ class GateOperationCoordinator:
         threading.Thread(target=self._watchdog_flow, args=(intent,), daemon=True).start()
 
     def _watchdog_flow(self, intent: str):
+        current_state = self.monitor.get_state()
+        if current_state == intent:
+            logger.info("Portão já está no estado desejado: %s. Ignorando pulso.", intent)
+            return
+            
         with self._lock:
             if self.comando_ativo_pelo_sistema:
                 logger.warning("Comando já ativo. Ignorando novo gatilho.")

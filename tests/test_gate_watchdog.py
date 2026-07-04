@@ -18,15 +18,33 @@ def mock_monitor(monkeypatch):
     # but we will just manually set state. 
     return monitor
 
+def test_watchdog_ignores_when_already_in_state(fake_controller, mock_monitor, monkeypatch):
+    monkeypatch.setattr(config, "GATE_PULSE_RESPONSE_SECONDS", 0.05)
+    
+    coordinator = GateOperationCoordinator(fake_controller, mock_monitor)
+    mock_monitor.set_mock_state(GATE_OPEN)
+    
+    # We trigger GATE_OPEN. The state is already GATE_OPEN, so it shouldn't send pulse.
+    coordinator.trigger_gate(GATE_OPEN)
+    time.sleep(0.15)
+    
+    fake_controller.open.assert_not_called()
+    assert coordinator.comando_ativo_pelo_sistema is False
+
 def test_watchdog_reaches_target_state(fake_controller, mock_monitor, monkeypatch):
     monkeypatch.setattr(config, "GATE_PULSE_RESPONSE_SECONDS", 0.05)
     monkeypatch.setattr(config, "GATE_RETRY_COOLDOWN_SECONDS", 0.05)
     
     coordinator = GateOperationCoordinator(fake_controller, mock_monitor)
+    mock_monitor.set_mock_state(GATE_CLOSED)
+    
+    # We trigger GATE_OPEN. The state is GATE_CLOSED, but it will send one pulse.
+    coordinator.trigger_gate(GATE_OPEN)
+    time.sleep(0.01) # let it send pulse
+    
+    # We assume the pulse works, so we mock the monitor to GATE_OPEN before it checks
     mock_monitor.set_mock_state(GATE_OPEN)
     
-    # We trigger GATE_OPEN. The state is already GATE_OPEN, but it will send one pulse.
-    coordinator.trigger_gate(GATE_OPEN)
     time.sleep(0.15)
     
     fake_controller.open.assert_called_once()
