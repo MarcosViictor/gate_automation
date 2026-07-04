@@ -50,6 +50,7 @@ class MainWindow(tk.Tk):
         
         style.configure("Success.TLabel", font=("Segoe UI", 14, "bold"), foreground="#10b981", background=BG_CARD)
         style.configure("Danger.TLabel", font=("Segoe UI", 14, "bold"), foreground="#ef4444", background=BG_CARD)
+        style.configure("Warning.TLabel", font=("Segoe UI", 14, "bold"), foreground=COLOR_ACCENT, background=BG_CARD)
         style.configure("Status.TLabel", font=("Segoe UI", 12, "bold"), foreground=COLOR_PRIMARY, background=BG_CARD)
 
         style.configure("Treeview", font=("Segoe UI", 10), rowheight=26, borderwidth=0, background=BG_CARD, fieldbackground=BG_CARD, foreground=COLOR_TEXT_MAIN)
@@ -194,11 +195,18 @@ class MainWindow(tk.Tk):
                 status
             ))
 
-    def update_gate_status(self, is_open: bool):
-        if is_open:
+    def update_gate_status(self, state):
+        if isinstance(state, bool):
+            state = "ABERTO" if state else "FECHADO"
+            
+        if state == "ABERTO":
             self.lbl_gate_status.config(text="PORTÃO ABERTO", style="Success.TLabel")
-        else:
+        elif state == "FECHADO":
             self.lbl_gate_status.config(text="PORTÃO FECHADO", style="Status.TLabel")
+        elif state == "EM_ANDAMENTO":
+            self.lbl_gate_status.config(text="PORTÃO EM ANDAMENTO", style="Warning.TLabel")
+        elif state == "TRAVADO":
+            self.lbl_gate_status.config(text="PORTÃO TRAVADO", style="Danger.TLabel")
 
     def update_net_status(self, is_online: bool):
         if is_online:

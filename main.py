@@ -20,6 +20,8 @@ from controllers.auth_controller import AuthController
 from controllers.sync_controller import SyncController
 from commands.rfid_reader import RFIDReader
 from commands.gate_controller import GateController
+from commands.gate_state_monitor import GateStateMonitor, GATE_OPEN, GATE_CLOSED
+from commands.gate_operation_coordinator import GateOperationCoordinator
 from views.main_window import MainWindow
 
 logger = logging.getLogger(__name__)
@@ -99,6 +101,9 @@ def main():
         _seed_test_data(db)
 
     gate = GateController()
+    gate_monitor = GateStateMonitor()
+    gate_coordinator = GateOperationCoordinator(gate, gate_monitor)
+    
     sync = SyncController(db)
     auth = AuthController(db, mode="online")
     
@@ -108,12 +113,10 @@ def main():
 
     def close_gate():
         nonlocal gate_timer
-        logger.info("⏰ Temporizador expirou. Enviando impulso para FECHAR o portão.")
-        gate.open()  # Envia o impulso de fechamento
+        logger.info("⏰ Temporizador expirou. Iniciando processo de FECHAR o portão.")
+        gate_coordinator.trigger_gate(GATE_CLOSED)
         with gate_timer_lock:
             gate_timer = None
-        if app:
-            app.after(0, lambda: app.update_gate_status(False))
 
     # Readers variables
     reader_in = None
@@ -158,6 +161,7 @@ def main():
         # Nova funcionalidade de temporizador de 1:30 para fechar o portão
         if result.authorized:
             logger.info("🔓 ACESSO AUTORIZADO para a tag %s", tag_code)
+            logger.info("Evento marcado: AGUARDANDO_PASSAGEM")
             
             with gate_timer_lock:
                 if gate_timer is not None:
@@ -165,8 +169,8 @@ def main():
                     gate_timer.cancel()
                     gate_timer = None
                 else:
-                    logger.info("Enviando impulso para ABRIR o portão.")
-                    gate.open()
+                    logger.info("Iniciando processo de ABRIR o portão.")
+                    gate_coordinator.trigger_gate(GATE_OPEN)
                 
                 # Agenda o fechamento do portão para 90 segundos (1:30)
                 gate_timer = threading.Timer(90.0, close_gate)
@@ -176,8 +180,8 @@ def main():
 
         if app:
             app.after(0, lambda: [
-                app.refresh_all_tabs(),
-                app.update_gate_status(result.authorized)
+                app.refresh_all_tabs()
+                # UI gate status update happens via monitor callbacks now
             ])
 
     def handle_sync():
@@ -194,8 +198,15 @@ def main():
             on_save_ports=handle_save_ports,
             on_mock_tag=handle_tag
         )
+        
+        def ui_state_update(state: str):
+            if app:
+                app.after(0, lambda: app.update_gate_status(state))
+                
+        gate_coordinator.on_state_update = ui_state_update
     else:
         app = None
+        gate_coordinator.on_state_update = lambda state: logger.info(f"UI Mock Update: {state}")
 
     # Sync status callback
     def update_mode(online: bool):
@@ -212,6 +223,7 @@ def main():
     # Start background tasks
     start_readers(port_in, port_out)
     sync.start()
+    gate_monitor.start()
 
     # Start loop
     try:
@@ -234,6 +246,7 @@ def main():
             if gate_timer:
                 gate_timer.cancel()
                 
+        gate_monitor.stop()
         gate.cleanup()
         db.close()
         logger.info("Desligamento completo.")

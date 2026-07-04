@@ -26,6 +26,19 @@ SEED_TEST_DATA = os.getenv(
 GATE_RELAY_PIN = 18        # GPIO para acionar o relé do portão
 GATE_OPEN_DURATION = 5     # Tempo em segundos que o portão fica aberto
 
+# Sensores Hall
+GATE_SENSOR_A_PIN = int(os.getenv("GATE_SENSOR_A_PIN", "17"))
+GATE_SENSOR_B_PIN = int(os.getenv("GATE_SENSOR_B_PIN", "27"))
+
+# Tempos e Watchdog
+GATE_STATE_POLL_INTERVAL = float(os.getenv("GATE_STATE_POLL_INTERVAL", "0.05"))
+GATE_STATE_DEBOUNCE_SECONDS = float(os.getenv("GATE_STATE_DEBOUNCE_SECONDS", "0.02"))
+GATE_MOVING_TIMEOUT_SECONDS = float(os.getenv("GATE_MOVING_TIMEOUT_SECONDS", "30.0"))
+GATE_PULSE_RESPONSE_SECONDS = float(os.getenv("GATE_PULSE_RESPONSE_SECONDS", "10.0"))
+GATE_RETRY_COOLDOWN_SECONDS = float(os.getenv("GATE_RETRY_COOLDOWN_SECONDS", "2.0"))
+GATE_MAX_RETRY_ATTEMPTS = int(os.getenv("GATE_MAX_RETRY_ATTEMPTS", "3"))
+GATE_PASSAGE_CONFIRMATION_SECONDS = float(os.getenv("GATE_PASSAGE_CONFIRMATION_SECONDS", "30.0"))
+
 RFID_PORT_IN = os.getenv("RFID_PORT_IN", "/dev/ttyUSB0")    # Porta serial Entrada
 RFID_PORT_OUT = os.getenv("RFID_PORT_OUT", "/dev/ttyUSB1")  # Porta serial Saída
 RFID_BAUDRATE = 9600
