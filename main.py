@@ -1,192 +1,123 @@
-"""
-Ponto de entrada da aplicação Gate Automation (Tkinter Lightweight GUI).
+"""Ponto de entrada — Gate Automation (thin client).
 
-Execução:
-    python main.py
+Lê tags RFID e valida em tempo real no servidor local (sb-gatehouse).
+Config de servidor/portas vem do .env (editável pela GUI ou por SSH no Raspberry).
 
-Variáveis de ambiente opcionais:
-    MOCK_HARDWARE=true         Roda sem GPIO/serial (padrão: false)
-    SEED_TEST_DATA=true        Semeia dados locais de teste (padrão: true em mock)
+Variáveis de ambiente:
+    HEADLESS=true        Força modo sem GUI (auto-detectado se não houver DISPLAY)
+    MOCK_HARDWARE=true   Roda sem GPIO/serial (a GUI injeta tags manualmente)
 """
+import os
 import sys
 import threading
-from datetime import datetime
 import logging
 
 import config
-from models.database import Database
-from models.tag import Tag, TagRepository
 from controllers.auth_controller import AuthController
-from controllers.sync_controller import SyncController
 from commands.rfid_reader import RFIDReader
 from commands.gate_controller import GateController
-from views.main_window import MainWindow
-
-logger = logging.getLogger(__name__)
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
+logger = logging.getLogger(__name__)
 
-def _seed_test_data(db: Database) -> None:
-    from models.vehicle import Vehicle, VehicleRepository
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    tags = TagRepository(db)
-    vehicles = VehicleRepository(db)
-
-    tags.upsert(Tag(server_id=99201, tag_code="01000000000000000000000158", driver_id=None, is_active=True, updated_at=now))
-    tags.upsert(Tag(server_id=99202, tag_code="01000000000000000000000159", driver_id=None, is_active=False, updated_at=now))
-    tags.upsert(Tag(server_id=99203, tag_code="01000000000000000000000160", driver_id=None, is_active=False, updated_at=now))
-    tags.upsert(Tag(server_id=99204, tag_code="01E28069150000401D63E8C9", driver_id=None, is_active=True, updated_at=now))
-
-    # Fetch seeded tag IDs to associate with vehicles
-    t1 = tags.find_by_code("01000000000000000000000158")
-    t2 = tags.find_by_code("01E28069150000401D63E8C9")
-
-    if t1:
-        vehicles.upsert(Vehicle(server_id=101, plate="ABC-1234", model="Toyota Hilux", portaria_id=1, tag_id=t1.id, is_active=True, updated_at=now))
-    if t2:
-        vehicles.upsert(Vehicle(server_id=102, plate="XYZ-9876", model="Honda Civic", portaria_id=2, tag_id=t2.id, is_active=True, updated_at=now))
 
 def main():
-    logger.info("Iniciando Gate Automation...")
+    logger.info("Iniciando Gate Automation (thin client)...")
 
-    import os
     headless = os.getenv("HEADLESS", "false").lower() == "true"
-    
-    # Detecção automática de ambiente sem display no Linux
     if not headless and sys.platform.startswith("linux") and not os.getenv("DISPLAY"):
-        logger.info("Nenhuma variável DISPLAY detectada no Linux. Ativando modo headless automaticamente.")
+        logger.info("Sem DISPLAY no Linux; ativando modo headless automaticamente.")
         headless = True
 
-    db = Database()
-    db.create_tables()
-
-    # Garante que a tag do usuário esteja sempre cadastrada e ativa no banco de dados local
-    try:
-        from models.driver import Driver, DriverRepository
-        from models.vehicle import Vehicle, VehicleRepository
-        
-        tags_repo = TagRepository(db)
-        drivers_repo = DriverRepository(db)
-        vehicles_repo = VehicleRepository(db)
-        
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        # Tag antiga
-        tags_repo.upsert(Tag(server_id=99204, tag_code="01E28069150000401D63E8C9", driver_id=None, is_active=True, updated_at=now_str))
-        
-        # Inserindo motorista ritinha
-        drivers_repo.upsert(Driver(server_id=99901, name="ritinha", is_active=True, updated_at=now_str))
-        active_drivers = drivers_repo.find_all_active()
-        ritinha_driver = next((d for d in active_drivers if d.name == "ritinha"), None)
-        ritinha_id = ritinha_driver.id if ritinha_driver else None
-        
-        # Inserindo tag ritinha
-        tags_repo.upsert(Tag(server_id=99205, tag_code="01E28069150000401D63E8C5", driver_id=ritinha_id, is_active=True, updated_at=now_str))
-        ritinha_tag = tags_repo.find_by_code("01E28069150000401D63E8C5")
-        
-        if ritinha_tag:
-            # Inserindo veículo ritinha
-            vehicles_repo.upsert(Vehicle(server_id=103, plate="RIT-0000", model="carro ritinha", tag_id=ritinha_tag.id, is_active=True, updated_at=now_str))
-            
-        logger.info("Tags padroes garantidas no banco local como ativas (inclui ritinha).")
-    except Exception as e:
-        logger.error("Erro ao garantir tag do usuario no banco: %s", e)
-
-    if config.SEED_TEST_DATA:
-        _seed_test_data(db)
-
     gate = GateController()
-    sync = SyncController(db)
-    auth = AuthController(db, mode="online")
+    auth = AuthController()
 
-
-    # Readers variables
+    app = None
     reader_in = None
     reader_out = None
 
-    def start_readers(port_in: str, port_out: str):
-        nonlocal reader_in, reader_out
-        if reader_in: reader_in.stop()
-        if reader_out: reader_out.stop()
-        
-        reader_in = RFIDReader("IN", port_in, handle_tag)
-        reader_out = RFIDReader("OUT", port_out, handle_tag)
-        reader_in.start()
-        reader_out.start()
-
-    def handle_save_ports(port_in: str, port_out: str):
-        start_readers(port_in, port_out)
-
     def handle_tag(tag_code: str, direction: str):
         logger.info("Leitura: Tag=%s, Direction=%s", tag_code, direction)
-        result = auth.process(tag_code, direction)
-
+        result = auth.check(tag_code, direction)
         if result.authorized:
             logger.info("🔓 ACESSO AUTORIZADO para a tag %s", tag_code)
             gate.open()
         else:
             logger.warning("🔒 ACESSO NEGADO para a tag %s. Motivo: %s", tag_code, result.reason)
-
         if app:
-            app.after(0, lambda: [
-                app.refresh_all_tabs(),
-                app.update_gate_status(result.authorized)
-            ])
+            app.after(0, lambda: (
+                app.add_read_row(result),
+                app.update_gate_status(result.authorized),
+                app.update_net_status(result.online),
+            ))
 
-    def handle_sync():
-        logger.info("Forçando sincronização manual...")
-        sync.sync_now()
-        if app:
-            app.after(0, lambda: app.refresh_all_tabs())
+    def start_readers(port_in: str, port_out: str):
+        nonlocal reader_in, reader_out
+        if reader_in:
+            reader_in.stop()
+        if reader_out:
+            reader_out.stop()
+        reader_in = RFIDReader("IN", port_in, handle_tag)
+        reader_out = RFIDReader("OUT", port_out, handle_tag)
+        reader_in.start()
+        reader_out.start()
 
-    # Create Tkinter UI if not headless
+    def handle_save_config(cfg: dict):
+        config.update_env("SERVER_HOST", cfg["server_host"])
+        config.update_env("SERVER_PORT", cfg["server_port"])
+        config.update_env("RFID_PORT_IN", cfg["rfid_port_in"])
+        config.update_env("RFID_PORT_OUT", cfg["rfid_port_out"])
+        start_readers(cfg["rfid_port_in"], cfg["rfid_port_out"])
+
+    def handle_test_connection():
+        import requests
+        url = f"{config.get_server_base_url()}{config.ACCESS_PATH}"
+        try:
+            resp = requests.post(url, json={"tag_code": "__test__"},
+                                 timeout=config.SERVER_TIMEOUT)
+            return True, f"Conectado a {url} (HTTP {resp.status_code})"
+        except Exception as exc:
+            return False, f"Falha ao conectar em {url}: {exc}"
+
+    port_in = os.getenv("RFID_PORT_IN", config.RFID_PORT_IN)
+    port_out = os.getenv("RFID_PORT_OUT", config.RFID_PORT_OUT)
+
     if not headless:
+        from views.main_window import MainWindow
         app = MainWindow(
-            db=db,
-            on_sync=handle_sync,
-            on_save_ports=handle_save_ports,
-            on_mock_tag=handle_tag
+            on_save_config=handle_save_config,
+            on_mock_tag=handle_tag,
+            on_test_connection=handle_test_connection,
+            initial_config={
+                "server_host": os.getenv("SERVER_HOST", config.SERVER_HOST),
+                "server_port": os.getenv("SERVER_PORT", config.SERVER_PORT),
+                "rfid_port_in": port_in,
+                "rfid_port_out": port_out,
+            },
         )
-    else:
-        app = None
 
-    # Sync status callback
-    def update_mode(online: bool):
-        auth.mode = "online" if online else "offline"
-        if app:
-            app.after(0, lambda: app.update_net_status(online))
-
-    sync._on_status_change = update_mode
-
-    # Read ports from DB
-    port_in = db.get_setting("RFID_PORT_IN", config.RFID_PORT_IN)
-    port_out = db.get_setting("RFID_PORT_OUT", config.RFID_PORT_OUT)
-    
-    # Start background tasks
     start_readers(port_in, port_out)
-    sync.start()
 
-    # Start loop
     try:
         if headless:
-            logger.info("Serviço iniciado com sucesso em modo HEADLESS. Pressione Ctrl+C para encerrar.")
-            exit_event = threading.Event()
-            exit_event.wait()
+            logger.info("Rodando em modo HEADLESS. Pressione Ctrl+C para encerrar.")
+            threading.Event().wait()
         else:
             app.mainloop()
     except KeyboardInterrupt:
         logger.info("Sinal recebido.")
     finally:
         logger.info("Encerrando serviços...")
-        if reader_in: reader_in.stop()
-        if reader_out: reader_out.stop()
-        sync.stop()
+        if reader_in:
+            reader_in.stop()
+        if reader_out:
+            reader_out.stop()
         gate.cleanup()
-        db.close()
         logger.info("Desligamento completo.")
+
 
 if __name__ == "__main__":
     main()
