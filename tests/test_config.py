@@ -15,9 +15,13 @@ def test_access_path_is_fixed():
 
 
 def test_get_server_base_url_defaults(monkeypatch):
+    import config
+    # Isola o teste de um .env local: zera o env E os defaults de módulo
+    # (o config.py carrega .env no import, o que congelaria SERVER_HOST).
     monkeypatch.delenv("SERVER_HOST", raising=False)
     monkeypatch.delenv("SERVER_PORT", raising=False)
-    import config
+    monkeypatch.setattr(config, "SERVER_HOST", "localhost")
+    monkeypatch.setattr(config, "SERVER_PORT", "8001")
     assert config.get_server_base_url() == "http://localhost:8001"
 
 
