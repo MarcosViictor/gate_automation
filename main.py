@@ -14,6 +14,7 @@ import threading
 import logging
 
 import config
+from clients.gatehouse_client import GatehouseClient
 from controllers.auth_controller import AuthController
 from commands.rfid_reader import RFIDReader
 from commands.gate_controller import GateController
@@ -34,7 +35,8 @@ def main():
         headless = True
 
     gate = GateController()
-    auth = AuthController()
+    gatehouse = GatehouseClient()
+    auth = AuthController(gatehouse)
 
     app = None
     reader_in = None
@@ -74,14 +76,10 @@ def main():
         start_readers(cfg["rfid_port_in"], cfg["rfid_port_out"])
 
     def handle_test_connection():
-        import requests
-        url = f"{config.get_server_base_url()}{config.ACCESS_PATH}"
-        try:
-            resp = requests.post(url, json={"tag_code": "__test__"},
-                                 timeout=config.SERVER_TIMEOUT)
-            return True, f"Conectado a {url} (HTTP {resp.status_code})"
-        except Exception as exc:
-            return False, f"Falha ao conectar em {url}: {exc}"
+        r = gatehouse.post_access("__test__")
+        if r.reachable:
+            return True, f"Conectado a {config.get_server_base_url()} (HTTP {r.status_code})"
+        return False, f"Falha ao conectar: {r.error}"
 
     port_in = os.getenv("RFID_PORT_IN", config.RFID_PORT_IN)
     port_out = os.getenv("RFID_PORT_OUT", config.RFID_PORT_OUT)
