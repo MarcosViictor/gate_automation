@@ -39,15 +39,19 @@ class GatehouseClient:
                 url, json={"tag_code": tag_code}, timeout=self._timeout()
             )
         except Exception as exc:
-            logger.warning("Servidor inacessível ao chamar %s: %s", url, exc)
+            logger.warning("Servidor inacessível ao checar tag %s (%s): %s", tag_code, url, exc)
             return GatehouseResponse(reachable=False, error=str(exc))
 
         data = None
-        if resp.status_code == 200:
+        if resp.status_code != 200:
+            logger.warning("Servidor respondeu %s para a tag %s (%s)", resp.status_code, tag_code, url)
+        else:
             try:
                 parsed = resp.json()
                 if isinstance(parsed, dict):
                     data = parsed
+                else:
+                    logger.warning("Resposta 200 não é um objeto JSON para a tag %s (%s)", tag_code, url)
             except ValueError:
-                data = None
+                logger.warning("Resposta 200 com JSON inválido para a tag %s (%s)", tag_code, url)
         return GatehouseResponse(reachable=True, status_code=resp.status_code, data=data)

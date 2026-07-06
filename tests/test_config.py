@@ -14,7 +14,7 @@ def test_access_path_is_fixed():
     assert config.ACCESS_PATH == "/api/raspberry/access"
 
 
-def test_get_server_base_url_defaults(monkeypatch):
+def test_get_server_base_url_falls_back_to_module_constants(monkeypatch):
     import config
     # Isola o teste de um .env local: zera o env E os defaults de módulo
     # (o config.py carrega .env no import, o que congelaria SERVER_HOST).
