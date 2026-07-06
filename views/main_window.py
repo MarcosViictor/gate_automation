@@ -1,300 +1,159 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+from datetime import datetime
 from typing import Callable
 
-from models.database import Database
-from models.access_log import AccessLogRepository
+from controllers.auth_controller import AccessDecision
+
 
 class MainWindow(tk.Tk):
-    def __init__(self, db: Database, on_sync: Callable, on_save_ports: Callable, on_mock_tag: Callable):
+    def __init__(
+        self,
+        on_save_config: Callable[[dict], None],
+        on_mock_tag: Callable[[str, str], None],
+        on_test_connection: Callable[[], tuple],
+        initial_config: dict,
+    ):
         super().__init__()
-        self.db = db
-        self.logs_repo = AccessLogRepository(db)
-        self.on_sync = on_sync
-        self.on_save_ports = on_save_ports
+        self.on_save_config = on_save_config
         self.on_mock_tag = on_mock_tag
+        self.on_test_connection = on_test_connection
+        self.cfg = initial_config
 
-        self.title("Gate Automation Monitor")
-        self.geometry("650x500")
-        BG_APP = "#f1f5f9"
-        BG_CARD = "#ffffff"
-        COLOR_PRIMARY = "#1e3a8a"
-        COLOR_ACCENT = "#eab308"
-        COLOR_ACCENT_HOVER = "#ca8a04"
-        COLOR_TEXT_MAIN = "#0f172a"
-        COLOR_TEXT_MUTED = "#64748b"
-        BORDER_COLOR = "#cbd5e1"
+        self.title("Gate Automation — Thin Client")
+        self.geometry("640x460")
 
-        self.configure(bg=BG_APP)
-        
-        # Usar o tema clam como base e estilizá-lo
         style = ttk.Style(self)
         if "clam" in style.theme_names():
             style.theme_use("clam")
-
-        # Configurações globais de estilo
-        style.configure(".", font=("Segoe UI", 10), background=BG_APP, foreground=COLOR_TEXT_MAIN)
-        style.configure("TNotebook", background=COLOR_PRIMARY, borderwidth=0)
-        style.configure("TNotebook.Tab", font=("Segoe UI", 10, "bold"), padding=[15, 6], background=COLOR_PRIMARY, foreground="white", borderwidth=0)
-        style.map("TNotebook.Tab", 
-                  background=[("selected", BG_APP), ("active", "#1e40af")], 
-                  foreground=[("selected", COLOR_PRIMARY), ("active", COLOR_ACCENT)])
-        
-        style.configure("Card.TFrame", background=BG_CARD, borderwidth=1, relief="solid", bordercolor=BORDER_COLOR)
-        
-        style.configure("Primary.TButton", font=("Segoe UI", 10, "bold"), background=COLOR_PRIMARY, foreground="white", padding=6)
-        style.map("Primary.TButton", background=[("active", "#1e40af")])
-        
-        style.configure("Accent.TButton", font=("Segoe UI", 10, "bold"), background=COLOR_ACCENT, foreground=COLOR_PRIMARY, padding=6)
-        style.map("Accent.TButton", background=[("active", COLOR_ACCENT_HOVER)])
-        
-        style.configure("Success.TLabel", font=("Segoe UI", 14, "bold"), foreground="#10b981", background=BG_CARD)
-        style.configure("Danger.TLabel", font=("Segoe UI", 14, "bold"), foreground="#ef4444", background=BG_CARD)
-        style.configure("Status.TLabel", font=("Segoe UI", 12, "bold"), foreground=COLOR_PRIMARY, background=BG_CARD)
-
-        style.configure("Treeview", font=("Segoe UI", 10), rowheight=26, borderwidth=0, background=BG_CARD, fieldbackground=BG_CARD, foreground=COLOR_TEXT_MAIN)
-        style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"), background=COLOR_PRIMARY, foreground="white", relief="flat")
-        style.map("Treeview.Heading", background=[("active", "#1e40af")], foreground=[("active", "white")])
-        style.map("Treeview", background=[("selected", "#dbeafe")], foreground=[("selected", COLOR_PRIMARY)])
+        style.configure("Success.TLabel", font=("Segoe UI", 13, "bold"), foreground="#10b981")
+        style.configure("Danger.TLabel", font=("Segoe UI", 13, "bold"), foreground="#ef4444")
+        style.configure("Status.TLabel", font=("Segoe UI", 13, "bold"), foreground="#1e3a8a")
 
         self.notebook = ttk.Notebook(self)
-        self.notebook.pack(expand=True, fill='both', padx=15, pady=15)
-
+        self.notebook.pack(expand=True, fill="both", padx=12, pady=12)
         self._build_monitor_tab()
-        self._build_vehicles_tab()
-        self._build_tags_tab()
-        self._build_readers_tab()
-        
-        self.protocol("WM_DELETE_WINDOW", self.on_close)
+        self._build_config_tab()
 
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+
+    # ------------------------------------------------------------------ Monitor
     def _build_monitor_tab(self):
         tab = ttk.Frame(self.notebook)
         self.notebook.add(tab, text="Monitor")
 
-        # Top Bar (Status and Sync) - Styled as a Card
-        top_frame = ttk.Frame(tab, style="Card.TFrame")
-        top_frame.pack(fill='x', padx=10, pady=10)
+        top = ttk.Frame(tab)
+        top.pack(fill="x", padx=10, pady=10)
+        self.lbl_gate = ttk.Label(top, text="PORTÃO FECHADO", style="Status.TLabel")
+        self.lbl_gate.pack(side="left")
+        ttk.Label(top, text="  |  ", style="Status.TLabel").pack(side="left")
+        self.lbl_net = ttk.Label(top, text="● OFFLINE", style="Danger.TLabel")
+        self.lbl_net.pack(side="left")
 
-        inner_top = ttk.Frame(top_frame, style="Card.TFrame")
-        inner_top.pack(fill='x', padx=15, pady=10)
+        cols = ("time", "tag", "dir", "status")
+        self.tree = ttk.Treeview(tab, columns=cols, show="headings", height=10)
+        for c, t, w in (("time", "Horário", 110), ("tag", "Tag", 240),
+                        ("dir", "Direção", 70), ("status", "Resultado", 180)):
+            self.tree.heading(c, text=t)
+            self.tree.column(c, width=w, anchor="center" if c == "dir" else "w")
+        self.tree.pack(expand=True, fill="both", padx=10, pady=(0, 10))
 
-        self.lbl_gate_status = ttk.Label(inner_top, text="PORTÃO FECHADO", style="Status.TLabel")
-        self.lbl_gate_status.pack(side='left')
-
-        # Separator
-        ttk.Label(inner_top, text=" | ", style="Status.TLabel").pack(side='left', padx=10)
-
-        self.lbl_net_status = ttk.Label(inner_top, text="● OFFLINE", style="Danger.TLabel")
-        self.lbl_net_status.pack(side='left')
-
-        btn_sync = ttk.Button(inner_top, text="⟳ Sincronizar Agora", style="Accent.TButton", command=self.on_sync)
-        btn_sync.pack(side='right')
-
-        # Treeview Container
-        tree_frame = ttk.Frame(tab, style="Card.TFrame")
-        tree_frame.pack(expand=True, fill='both', padx=10, pady=(0, 10))
-
-        # Treeview para Logs
-        columns = ("time", "tag", "vehicle", "portaria", "dir", "status")
-        self.tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=10)
-        self.tree.heading("time", text="Horário")
-        self.tree.heading("tag", text="Tag")
-        self.tree.heading("vehicle", text="Veículo")
-        self.tree.heading("portaria", text="Portaria")
-        self.tree.heading("dir", text="Direção")
-        self.tree.heading("status", text="Status")
-        
-        self.tree.column("time", width=120)
-        self.tree.column("tag", width=150)
-        self.tree.column("vehicle", width=130)
-        self.tree.column("portaria", width=65, anchor='center')
-        self.tree.column("dir", width=65, anchor='center')
-        self.tree.column("status", width=180)
-
-        self.tree.pack(expand=True, fill='both', padx=2, pady=2)
-
-        # Mock frame for testing directly from UI
-        mock_frame = ttk.Frame(tab, style="Card.TFrame")
-        mock_frame.pack(fill='x', padx=10, pady=(0, 10))
-        
-        inner_mock = ttk.Frame(mock_frame, style="Card.TFrame")
-        inner_mock.pack(fill='x', padx=10, pady=8)
-        
-        ttk.Label(inner_mock, text="Simulador (ex: IN:0100...):", font=("Segoe UI", 9, "bold"), background="#ffffff", foreground="#64748b").pack(side='left', padx=(0, 10))
-        self.ent_mock = ttk.Entry(inner_mock, width=30, font=("Consolas", 10))
-        self.ent_mock.pack(side='left', fill='x', expand=True, padx=5)
-        self.ent_mock.bind('<Return>', lambda e: self._handle_mock())
-        ttk.Button(inner_mock, text="Ler Tag", style="Accent.TButton", command=self._handle_mock).pack(side='right', padx=5)
-
-        self.refresh_logs()
+        sim = ttk.Frame(tab)
+        sim.pack(fill="x", padx=10, pady=(0, 10))
+        ttk.Label(sim, text="Simular (ex: IN:0100... ou só o código):").pack(side="left", padx=(0, 8))
+        self.ent_mock = ttk.Entry(sim, font=("Consolas", 10))
+        self.ent_mock.pack(side="left", fill="x", expand=True, padx=5)
+        self.ent_mock.bind("<Return>", lambda e: self._handle_mock())
+        ttk.Button(sim, text="Ler Tag", command=self._handle_mock).pack(side="right", padx=5)
 
     def _handle_mock(self):
         val = self.ent_mock.get().strip()
-        if val:
-            if val.startswith("IN:"):
-                self.on_mock_tag(val[3:], "IN")
-            elif val.startswith("OUT:"):
-                self.on_mock_tag(val[4:], "OUT")
-            else:
-                self.on_mock_tag(val, "IN")
-            self.ent_mock.delete(0, tk.END)
+        if not val:
+            return
+        if val.startswith("IN:"):
+            self.on_mock_tag(val[3:], "IN")
+        elif val.startswith("OUT:"):
+            self.on_mock_tag(val[4:], "OUT")
+        else:
+            self.on_mock_tag(val, "IN")
+        self.ent_mock.delete(0, tk.END)
 
-    def _build_readers_tab(self):
+    # ------------------------------------------------------------------ Config
+    def _build_config_tab(self):
         tab = ttk.Frame(self.notebook)
-        self.notebook.add(tab, text="Leitores (Configuração)")
+        self.notebook.add(tab, text="Configurações")
 
-        frame = ttk.Frame(tab, style="Card.TFrame")
-        frame.pack(fill='x', padx=15, pady=20)
-        
-        inner_config = ttk.Frame(frame, style="Card.TFrame")
-        inner_config.pack(fill='both', padx=20, pady=20)
+        frame = ttk.Frame(tab)
+        frame.pack(fill="both", padx=25, pady=25)
 
-        ttk.Label(inner_config, text="Configuração das Portas Seriais", font=("Segoe UI", 14, "bold"), background="#ffffff", foreground="#1e3a8a").grid(row=0, column=0, columnspan=2, sticky='w', pady=(0, 15))
+        ttk.Label(frame, text="Servidor local (sb-gatehouse)",
+                  font=("Segoe UI", 13, "bold"), foreground="#1e3a8a").grid(
+            row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
 
-        port_in = self.db.get_setting("RFID_PORT_IN", "/dev/ttyUSB0")
-        port_out = self.db.get_setting("RFID_PORT_OUT", "/dev/ttyUSB1")
+        self.ent_host = self._labeled_entry(frame, "IP do servidor:", 1, self.cfg["server_host"])
+        self.ent_port = self._labeled_entry(frame, "Porta:", 2, self.cfg["server_port"])
+        self.ent_in = self._labeled_entry(frame, "Leitor Entrada (IN):", 3, self.cfg["rfid_port_in"])
+        self.ent_out = self._labeled_entry(frame, "Leitor Saída (OUT):", 4, self.cfg["rfid_port_out"])
 
-        ttk.Label(inner_config, text="Leitor Entrada (IN):", background="#ffffff", font=("Segoe UI", 10, "bold"), foreground="#64748b").grid(row=1, column=0, sticky='w', pady=10)
-        self.ent_port_in = ttk.Entry(inner_config, width=35, font=("Consolas", 10))
-        self.ent_port_in.insert(0, port_in)
-        self.ent_port_in.grid(row=1, column=1, padx=15, pady=10)
+        btns = ttk.Frame(frame)
+        btns.grid(row=5, column=1, sticky="e", pady=(18, 0))
+        ttk.Button(btns, text="Testar conexão", command=self._test_connection).pack(side="left", padx=6)
+        ttk.Button(btns, text="✓ Salvar", command=self._save_config).pack(side="left")
 
-        ttk.Label(inner_config, text="Leitor Saída (OUT):", background="#ffffff", font=("Segoe UI", 10, "bold"), foreground="#64748b").grid(row=2, column=0, sticky='w', pady=10)
-        self.ent_port_out = ttk.Entry(inner_config, width=35, font=("Consolas", 10))
-        self.ent_port_out.insert(0, port_out)
-        self.ent_port_out.grid(row=2, column=1, padx=15, pady=10)
+    def _labeled_entry(self, parent, label, row, value):
+        ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", pady=8)
+        ent = ttk.Entry(parent, width=32, font=("Consolas", 10))
+        ent.insert(0, value or "")
+        ent.grid(row=row, column=1, padx=12, pady=8)
+        return ent
 
-        btn_save = ttk.Button(inner_config, text="✓ Salvar e Reiniciar Leitores", style="Primary.TButton", command=self._save_ports)
-        btn_save.grid(row=3, column=1, sticky='e', pady=(20, 0))
+    def _collect_config(self) -> dict:
+        return {
+            "server_host": self.ent_host.get().strip(),
+            "server_port": self.ent_port.get().strip(),
+            "rfid_port_in": self.ent_in.get().strip(),
+            "rfid_port_out": self.ent_out.get().strip(),
+        }
 
-    def _save_ports(self):
-        port_in = self.ent_port_in.get().strip()
-        port_out = self.ent_port_out.get().strip()
-        self.db.set_setting("RFID_PORT_IN", port_in)
-        self.db.set_setting("RFID_PORT_OUT", port_out)
-        self.on_save_ports(port_in, port_out)
-        messagebox.showinfo("Sucesso", "Portas salvas e leitores reiniciados com sucesso!")
+    def _save_config(self):
+        self.cfg = self._collect_config()
+        self.on_save_config(self.cfg)
+        messagebox.showinfo("Configurações", "Salvo no .env e leitores reiniciados.")
 
-    def refresh_logs(self):
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-        
-        logs = self.logs_repo.find_recent(limit=15)
-        for log in logs:
-            sync_label = "Sincronizado" if log.synced else "Offline"
-            status = f"{'AUTORIZADO' if log.authorized else f'NEGADO ({log.reason})'} ({sync_label})"
-            vehicle_info = f"{log.vehicle_plate} ({log.vehicle_model})" if log.vehicle_plate else "-"
-            portaria_info = str(log.portaria_id) if log.portaria_id is not None else "-"
-            self.tree.insert("", "end", values=(
-                log.timestamp,
-                log.tag_code,
-                vehicle_info,
-                portaria_info,
-                log.direction,
-                status
-            ))
+    def _test_connection(self):
+        # Salva antes de testar, para usar o IP/porta digitados.
+        self.on_save_config(self._collect_config())
+        ok, msg = self.on_test_connection()
+        if ok:
+            messagebox.showinfo("Testar conexão", msg)
+        else:
+            messagebox.showerror("Testar conexão", msg)
+
+    # ------------------------------------------------------------------ Updates
+    @staticmethod
+    def format_status(decision: AccessDecision) -> str:
+        if decision.authorized:
+            return "AUTORIZADO"
+        return f"NEGADO ({decision.reason})" if decision.reason else "NEGADO"
+
+    def add_read_row(self, decision: AccessDecision):
+        self.tree.insert(
+            "", 0,
+            values=(datetime.now().strftime("%H:%M:%S"), decision.tag_code,
+                    decision.direction, self.format_status(decision)),
+        )
+        children = self.tree.get_children()
+        for extra in children[15:]:
+            self.tree.delete(extra)
 
     def update_gate_status(self, is_open: bool):
-        if is_open:
-            self.lbl_gate_status.config(text="PORTÃO ABERTO", style="Success.TLabel")
-        else:
-            self.lbl_gate_status.config(text="PORTÃO FECHADO", style="Status.TLabel")
+        self.lbl_gate.config(
+            text="PORTÃO ABERTO" if is_open else "PORTÃO FECHADO",
+            style="Success.TLabel" if is_open else "Status.TLabel",
+        )
 
     def update_net_status(self, is_online: bool):
-        if is_online:
-            self.lbl_net_status.config(text="● ONLINE", style="Success.TLabel")
-        else:
-            self.lbl_net_status.config(text="● OFFLINE", style="Danger.TLabel")
-
-    def _build_vehicles_tab(self):
-        from models.vehicle import VehicleRepository
-        self.vehicle_repo = VehicleRepository(self.db)
-        
-        tab = ttk.Frame(self.notebook)
-        self.notebook.add(tab, text="Veículos")
-
-        frame = ttk.Frame(tab, style="Card.TFrame")
-        frame.pack(expand=True, fill='both', padx=10, pady=10)
-
-        columns = ("plate", "model", "portaria", "tag", "status")
-        self.tree_vehicles = ttk.Treeview(frame, columns=columns, show="headings", height=15)
-        self.tree_vehicles.heading("plate", text="Placa")
-        self.tree_vehicles.heading("model", text="Modelo")
-        self.tree_vehicles.heading("portaria", text="Portaria ID")
-        self.tree_vehicles.heading("tag", text="Tag Código")
-        self.tree_vehicles.heading("status", text="Status")
-
-        self.tree_vehicles.column("plate", width=100)
-        self.tree_vehicles.column("model", width=150)
-        self.tree_vehicles.column("portaria", width=100, anchor='center')
-        self.tree_vehicles.column("tag", width=200)
-        self.tree_vehicles.column("status", width=100, anchor='center')
-
-        self.tree_vehicles.pack(expand=True, fill='both', padx=2, pady=2)
-        
-        btn_refresh = ttk.Button(tab, text="⟳ Atualizar Lista", style="Primary.TButton", command=self.refresh_vehicles)
-        btn_refresh.pack(pady=5)
-
-        self.refresh_vehicles()
-
-    def refresh_vehicles(self):
-        for item in self.tree_vehicles.get_children():
-            self.tree_vehicles.delete(item)
-        
-        vehicles = self.vehicle_repo.find_all()
-        for v in vehicles:
-            status = "Ativo" if v.is_active else "Inativo"
-            self.tree_vehicles.insert("", "end", values=(
-                v.plate,
-                v.model or "-",
-                v.portaria_id or "-",
-                v.tag_code or "Não vinculada",
-                status
-            ))
-
-    def _build_tags_tab(self):
-        from models.tag import TagRepository
-        self.tag_repo = TagRepository(self.db)
-
-        tab = ttk.Frame(self.notebook)
-        self.notebook.add(tab, text="Tags")
-
-        frame = ttk.Frame(tab, style="Card.TFrame")
-        frame.pack(expand=True, fill='both', padx=10, pady=10)
-
-        columns = ("code", "status")
-        self.tree_tags = ttk.Treeview(frame, columns=columns, show="headings", height=15)
-        self.tree_tags.heading("code", text="Tag Código")
-        self.tree_tags.heading("status", text="Status")
-
-        self.tree_tags.column("code", width=300)
-        self.tree_tags.column("status", width=150, anchor='center')
-
-        self.tree_tags.pack(expand=True, fill='both', padx=2, pady=2)
-        
-        btn_refresh = ttk.Button(tab, text="⟳ Atualizar Lista", style="Primary.TButton", command=self.refresh_tags)
-        btn_refresh.pack(pady=5)
-
-        self.refresh_tags()
-
-    def refresh_tags(self):
-        for item in self.tree_tags.get_children():
-            self.tree_tags.delete(item)
-        
-        tags = self.tag_repo.find_all()
-        for t in tags:
-            status = "Ativa" if t.is_active else "Inativa"
-            self.tree_tags.insert("", "end", values=(
-                t.tag_code,
-                status
-            ))
-
-    def refresh_all_tabs(self):
-        self.refresh_logs()
-        if hasattr(self, 'refresh_vehicles'):
-            self.refresh_vehicles()
-        if hasattr(self, 'refresh_tags'):
-            self.refresh_tags()
-
-    def on_close(self):
-        self.destroy()
+        self.lbl_net.config(
+            text="● ONLINE" if is_online else "● OFFLINE",
+            style="Success.TLabel" if is_online else "Danger.TLabel",
+        )
