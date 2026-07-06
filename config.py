@@ -17,10 +17,22 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "data", "gate_local.db")
 
 # ==============================================================================
-# Servidor local (sincronização)
+# Servidor local (sb-gatehouse)
 # ==============================================================================
-SERVER_BASE_URL = os.getenv("SERVER_BASE_URL", "http://sitiobarreiras.app.br:55432")
-SERVER_TIMEOUT = 5  # segundos
+SERVER_HOST = os.getenv("SERVER_HOST", "localhost")
+SERVER_PORT = os.getenv("SERVER_PORT", "8001")
+SERVER_TIMEOUT = int(os.getenv("SERVER_TIMEOUT", "5"))  # segundos
+ACCESS_PATH = "/api/raspberry/access"  # rota fixa do endpoint de validação
+
+
+def get_server_base_url() -> str:
+    """Monta a base URL lendo host/porta do ambiente a cada chamada,
+    para que mudanças salvas pela GUI valham sem reiniciar."""
+    host = os.getenv("SERVER_HOST", SERVER_HOST)
+    port = os.getenv("SERVER_PORT", SERVER_PORT)
+    return f"http://{host}:{port}"
+
+
 SYNC_INTERVAL = 300  # 5 minutos em segundos
 
 # ==============================================================================
