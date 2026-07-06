@@ -40,6 +40,7 @@ def stub_server(monkeypatch):
     monkeypatch.setenv("SERVER_PORT", str(port))
     yield port
     server.shutdown()
+    server.server_close()
 
 
 def test_allowed_against_real_server(stub_server):

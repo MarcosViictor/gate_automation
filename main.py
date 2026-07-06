@@ -9,6 +9,7 @@ Variáveis de ambiente:
 """
 import os
 import sys
+import signal
 import threading
 import logging
 
@@ -85,6 +86,14 @@ def main():
     port_in = os.getenv("RFID_PORT_IN", config.RFID_PORT_IN)
     port_out = os.getenv("RFID_PORT_OUT", config.RFID_PORT_OUT)
 
+    shutdown_event = threading.Event()
+
+    def _handle_sigterm(signum, frame):
+        logger.info("SIGTERM recebido; encerrando...")
+        shutdown_event.set()
+
+    signal.signal(signal.SIGTERM, _handle_sigterm)
+
     if not headless:
         from views.main_window import MainWindow
         app = MainWindow(
@@ -104,7 +113,7 @@ def main():
     try:
         if headless:
             logger.info("Rodando em modo HEADLESS. Pressione Ctrl+C para encerrar.")
-            threading.Event().wait()
+            shutdown_event.wait()
         else:
             app.mainloop()
     except KeyboardInterrupt:

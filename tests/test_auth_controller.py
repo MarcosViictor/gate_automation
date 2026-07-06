@@ -56,3 +56,11 @@ def test_bad_json_is_fail_closed():
         result = AuthController().check("TAG123")
     assert result.authorized is False
     assert result.online is True
+
+
+def test_non_dict_json_is_fail_closed():
+    resp = _fake_response(200, [1, 2, 3])
+    with patch("controllers.auth_controller.requests.post", return_value=resp):
+        result = AuthController().check("TAG123")
+    assert result.authorized is False
+    assert result.online is True

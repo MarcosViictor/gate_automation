@@ -50,6 +50,10 @@ class AuthController:
                 False, tag_code, direction, "Resposta inválida do servidor", online=True
             )
 
+        if not isinstance(data, dict):
+            logger.warning("Resposta JSON não é um objeto para a tag %s", tag_code)
+            return AccessDecision(False, tag_code, direction, "Resposta inválida do servidor", online=True)
+
         authorized = bool(data.get("open"))
         reason = data.get("reason") or ("Acesso liberado" if authorized else "Acesso negado")
         return AccessDecision(authorized, tag_code, direction, reason, online=True)

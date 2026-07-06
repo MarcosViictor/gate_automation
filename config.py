@@ -27,8 +27,6 @@ def get_server_base_url() -> str:
     return f"http://{host}:{port}"
 
 
-SYNC_INTERVAL = 300  # 5 minutos em segundos
-
 # ==============================================================================
 # Hardware – GPIO (Raspberry Pi)
 # Defina MOCK_HARDWARE=True para rodar em um PC sem GPIO

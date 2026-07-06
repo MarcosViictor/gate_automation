@@ -1,7 +1,7 @@
 # Dependências da aplicação Gate Automation
 # Instale com: pip install -r requirements.txt
 
-# Interface gráfica removida (Headless mode)
+# Interface gráfica (Tkinter) é opcional, usada quando há tela
 
 # Requisições HTTP (sincronização com servidor)
 requests>=2.31.0
