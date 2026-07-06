@@ -11,12 +11,6 @@ def update_env(key: str, value: str):
     set_key(ENV_FILE_PATH, key, value)
     os.environ[key] = value
 # ==============================================================================
-# Caminhos
-# ==============================================================================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "data", "gate_local.db")
-
-# ==============================================================================
 # Servidor local (sb-gatehouse)
 # ==============================================================================
 SERVER_HOST = os.getenv("SERVER_HOST", "localhost")
@@ -40,10 +34,6 @@ SYNC_INTERVAL = 300  # 5 minutos em segundos
 # Defina MOCK_HARDWARE=True para rodar em um PC sem GPIO
 # ==============================================================================
 MOCK_HARDWARE = os.getenv("MOCK_HARDWARE", "false").lower() == "true"
-SEED_TEST_DATA = os.getenv(
-	"SEED_TEST_DATA",
-	"true" if MOCK_HARDWARE else "false",
-).lower() == "true"
 
 GATE_RELAY_PIN = 18        # GPIO para acionar o relé do portão
 GATE_OPEN_DURATION = 5     # Tempo em segundos que o portão fica aberto
