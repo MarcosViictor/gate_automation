@@ -19,10 +19,7 @@ guarda `RASPBERRY_HOST=<ip>:8080` e faz `POST /open`.
 
 ### `POST /open` — comanda a abertura
 ```
-POST http://{RASPBERRY_HOST}/open        # RASPBERRY_HOST inclui a porta, ex.: 192.168.0.50:8080
-Content-Type: application/json
-Authorization: <segredo>                 # enviado/exigido SÓ se configurado dos dois lados
-Body: {"portaria": <int>}                # opcional; o Pi apenas registra no log
+ 
 ```
 | Status | Body | Significado |
 |---|---|---|
