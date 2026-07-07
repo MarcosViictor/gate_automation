@@ -15,9 +15,10 @@ import logging
 
 import config
 from clients.gatehouse_client import GatehouseClient
-from controllers.auth_controller import AuthController
+from controllers.auth_controller import AuthController, AccessDecision
 from commands.rfid_reader import RFIDReader
 from commands.gate_controller import GateController
+from server.gate_server import GateServer
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,6 +56,16 @@ def main():
                 app.add_read_row(result),
                 app.update_gate_status(result.authorized),
                 app.update_net_status(result.online),
+            ))
+
+    def handle_remote_open():
+        logger.info("🔓 Abertura remota recebida do gatehouse")
+        gate.open()
+        if app:
+            remote = AccessDecision(True, "(gatehouse)", "REMOTO", "Abertura remota", online=True)
+            app.after(0, lambda: (
+                app.add_read_row(remote),
+                app.update_gate_status(True),
             ))
 
     def start_readers(port_in: str, port_out: str):
@@ -108,6 +119,9 @@ def main():
 
     start_readers(port_in, port_out)
 
+    gate_server = GateServer(handle_remote_open, config.GATE_LISTEN_PORT, config.GATE_OPEN_TOKEN)
+    gate_server.start()
+
     try:
         if headless:
             logger.info("Rodando em modo HEADLESS. Pressione Ctrl+C para encerrar.")
@@ -122,6 +136,7 @@ def main():
             reader_in.stop()
         if reader_out:
             reader_out.stop()
+        gate_server.stop()
         gate.cleanup()
         logger.info("Desligamento completo.")
 

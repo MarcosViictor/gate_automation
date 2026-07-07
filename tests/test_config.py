@@ -30,3 +30,13 @@ def test_get_server_base_url_reads_env_fresh(monkeypatch):
     monkeypatch.setenv("SERVER_PORT", "9000")
     import config
     assert config.get_server_base_url() == "http://192.168.0.10:9000"
+
+
+def test_gate_listen_port_default():
+    import config
+    assert config.GATE_LISTEN_PORT == 8080
+
+
+def test_gate_open_token_default_empty():
+    import config
+    assert config.GATE_OPEN_TOKEN == ""

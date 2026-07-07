@@ -28,6 +28,12 @@ def get_server_base_url() -> str:
 
 
 # ==============================================================================
+# Servidor de abertura remota (recebe push do gatehouse)
+# ==============================================================================
+GATE_LISTEN_PORT = int(os.getenv("GATE_LISTEN_PORT", "8080"))
+GATE_OPEN_TOKEN = os.getenv("GATE_OPEN_TOKEN", "")  # vazio = sem autenticação
+
+# ==============================================================================
 # Hardware – GPIO (Raspberry Pi)
 # Defina MOCK_HARDWARE=True para rodar em um PC sem GPIO
 # ==============================================================================
