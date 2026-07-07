@@ -66,6 +66,7 @@ def main():
             app.after(0, lambda: (
                 app.add_read_row(remote),
                 app.update_gate_status(True),
+                app.update_net_status(True),
             ))
 
     def start_readers(port_in: str, port_out: str):
