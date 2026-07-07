@@ -1,4 +1,5 @@
 import json
+import socket
 import urllib.error
 import urllib.request
 
@@ -101,3 +102,32 @@ def test_on_open_exception_returns_500(make_server):
     srv = make_server(on_open=boom)
     status, _ = _post(srv.port, "/open")
     assert status == 500
+
+
+def test_open_with_missing_authorization_header_is_401(make_server):
+    srv = make_server(token="segredo")
+    status, _ = _post(srv.port, "/open")  # sem header Authorization
+    assert status == 401
+    assert srv.calls == []
+
+
+def test_malformed_content_length_returns_400(make_server):
+    srv = make_server()
+    raw = (
+        "POST /open HTTP/1.1\r\n"
+        "Host: 127.0.0.1\r\n"
+        "Content-Length: abc\r\n"
+        "Connection: close\r\n\r\n"
+    ).encode()
+    s = socket.create_connection(("127.0.0.1", srv.port), timeout=3)
+    s.sendall(raw)
+    resp = b""
+    while True:
+        chunk = s.recv(1024)
+        if not chunk:
+            break
+        resp += chunk
+    s.close()
+    status_line = resp.split(b"\r\n", 1)[0]
+    assert b"400" in status_line
+    assert srv.calls == []

@@ -35,7 +35,11 @@ class _GateHandler(BaseHTTPRequestHandler):
             return
 
         # Body opcional {"portaria": <id>} — apenas informativo para o log.
-        length = int(self.headers.get("Content-Length", 0) or 0)
+        try:
+            length = int(self.headers.get("Content-Length", 0) or 0)
+        except ValueError:
+            self._send_json(400, {"error": "bad_request"})
+            return
         if length:
             try:
                 data = json.loads(self.rfile.read(length) or b"{}")

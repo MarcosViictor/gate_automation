@@ -120,9 +120,9 @@ def main():
     start_readers(port_in, port_out)
 
     gate_server = GateServer(handle_remote_open, config.GATE_LISTEN_PORT, config.GATE_OPEN_TOKEN)
-    gate_server.start()
 
     try:
+        gate_server.start()
         if headless:
             logger.info("Rodando em modo HEADLESS. Pressione Ctrl+C para encerrar.")
             shutdown_event.wait()
